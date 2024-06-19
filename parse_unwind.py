@@ -113,6 +113,21 @@ def parse_unwind_info(addr):
         "StackAllocationSize": stack_allocation_size
     }
 
+def suggest_calling_convention(non_volatile_registers, stack_allocation_size):
+    """Suggest a calling convention based on the parsed information.
+    Calling Convention Suggestion: Added suggest_calling_convention function that suggests a calling
+    convention based on saved registers and stack allocation size.
+    If RBX, RDI, and RSI are saved, it suggests __fastcall.
+    If there is stack allocation, it suggests __stdcall.
+    Otherwise, it defaults to __cdecl."""
+
+    if "RBX" in non_volatile_registers and "RDI" in non_volatile_registers and "RSI" in non_volatile_registers:
+        return "__fastcall"
+    elif stack_allocation_size > 0:
+        return "__stdcall"
+    else:
+        return "__cdecl"
+
 def process_function(func_start, image_base, pdata_start, pdata_end):
     """Process a single function and add comments based on UNWIND_INFO."""
     for addr in range(pdata_start, pdata_end, 12):
@@ -127,6 +142,7 @@ def process_function(func_start, image_base, pdata_start, pdata_end):
                 continue
             
             non_volatile_regs = ', '.join(unwind_info['NonVolatileRegisters'])
+            calling_convention = suggest_calling_convention(unwind_info['NonVolatileRegisters'], unwind_info['StackAllocationSize'])
 
             comment = (
                 "UnwindInfo:\n"
@@ -138,10 +154,11 @@ def process_function(func_start, image_base, pdata_start, pdata_end):
                 f"FrameRegisterOffset: {unwind_info['FrameRegisterOffset']}\n"
                 f"Stack Allocation Size: {unwind_info['StackAllocationSize']} bytes\n"
                 f"Non-volatile Registers: {non_volatile_regs}\n"
+                f"Suggested Calling Convention: {calling_convention}\n"
             )
 
             idc.set_func_cmt(func_start, comment, 1)
-            debug_print(f"Added comment to function at 0x{func_start:X}")
+            debug_print(f"Added comment to function at 0x{func_start:X} with calling convention suggestion: {calling_convention}")
             break
 
 def add_comments():
