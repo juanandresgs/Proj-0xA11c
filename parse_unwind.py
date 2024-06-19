@@ -25,119 +25,122 @@ def get_pdata_segment():
     debug_print(f".pdata segment found: start=0x{seg.start_ea:X}, end=0x{seg.end_ea:X}")
     return seg.start_ea, seg.end_ea
 
-def parse_c_scope_table(scope_table_addr, num_entries):
+def parse_scope_table(scope_table_addr, num_entries):
     """Parse the C_SCOPE_TABLE structure."""
     scopes = []
-    entry_size = 2 * 4  # Each entry is two 4-byte values (start and end RVA)
+    entry_size = 2 * 4  # Each entry is two 4-byte values (begin, end addresses)
 
     for i in range(num_entries):
-        start_rva = idc.get_wide_dword(scope_table_addr + i * entry_size)
-        end_rva = idc.get_wide_dword(scope_table_addr + i * entry_size + 4)
-        scopes.append((start_rva, end_rva))
-        debug_print(f"C_SCOPE_TABLE Entry {i}: start=0x{start_rva:X}, end=0x{end_rva:X}")
+        try:
+            begin_addr = idc.get_wide_dword(scope_table_addr + i * entry_size)
+            end_addr = idc.get_wide_dword(scope_table_addr + i * entry_size + 4)
+            handler_addr = idc.get_wide_dword(scope_table_addr + (i * entry_size + 8))
+            if begin_addr == 0xFFFFFFFF or end_addr == 0xFFFFFFFF or handler_addr == 0xFFFFFFFF:
+                debug_print(f"Invalid address in scope table at entry {i}")
+                break
+            scopes.append((begin_addr, end_addr, handler_addr))
+            debug_print(f"Scope Table Entry {i}: Begin=0x{begin_addr:X}, End=0x{end_addr:X}, Handler=0x{handler_addr:X}")
+        except Exception as e:
+            debug_print(f"Exception parsing scope table entry {i}: {e}")
+            break
 
     return scopes
 
-def parse_unwind_info(unwind_info_addr, image_base):
-    """Parse the UNWIND_INFO structure."""
-    debug_print(f"Parsing UNWIND_INFO at address: 0x{unwind_info_addr:X}")
-    unwind_info = idaapi.get_bytes(unwind_info_addr, 4)
-    if not unwind_info or len(unwind_info) < 4:
-        # debug_print("Invalid UNWIND_INFO structure")
-        return None
+def parse_unwind_code(addr, count):
+    unwind_codes = []
+    for i in range(count):
+        code_offset = ida_bytes.get_byte(addr + i * 2)
+        unwind_op_info = ida_bytes.get_byte(addr + i * 2 + 1)
+        operation = unwind_op_info & 0x0F
+        info = unwind_op_info >> 4
+        unwind_codes.append((code_offset, operation, info))
+    return unwind_codes
 
-    version_flags = unwind_info[0]
-    version = version_flags & 0xF
-    flags = (version_flags >> 4) & 0xF
-    prolog_size = unwind_info[1]
-    num_codes = unwind_info[2]
-    frame_register = (unwind_info[3] >> 4) & 0xF
-    frame_offset = unwind_info[3] & 0xF
+def parse_unwind_info(addr):
+    version_flags = ida_bytes.get_byte(addr)
+    version = version_flags & 0b111
+    flags = version_flags >> 3
 
-    debug_print(f"Version: {version}, Flags: {flags}, Prolog Size: {prolog_size}, Number of Codes: {num_codes}, Frame Register: {frame_register}, Frame Offset: {frame_offset}")
+    size_of_prolog = ida_bytes.get_byte(addr + 1)
+    count_of_unwind_codes = ida_bytes.get_byte(addr + 2)
 
-    unwind_codes = idaapi.get_bytes(unwind_info_addr + 4, num_codes * 2)
-    if not unwind_codes:
-        debug_print("No UNWIND_CODE data found")
-        return {
-            "stack_alloc_size": 0,
-            "frame_register": frame_register,
-            "nonvolatile_registers": [],
-            "handler_addr": None,
-            "scopes": []
-        }
+    frame_reg_offset = ida_bytes.get_byte(addr + 3)
+    frame_register = frame_reg_offset & 0b1111
+    frame_register_offset = frame_reg_offset >> 4
 
-    code_idx = 0
-    stack_alloc_size = 0
-    nonvolatile_registers = []
-
-    while code_idx < len(unwind_codes):
-        code_offset = unwind_codes[code_idx]
-        unwind_op = unwind_codes[code_idx + 1] & 0xF
-        op_info = (unwind_codes[code_idx + 1] >> 4) & 0xF
-
-        if unwind_op == 0:  # UWOP_PUSH_NONVOL
-            nonvolatile_registers.append(op_info)
-        elif unwind_op == 1:  # UWOP_ALLOC_LARGE
-            if op_info == 0:
-                stack_alloc_size = int.from_bytes(unwind_codes[code_idx + 2:code_idx + 4], 'little')
-                code_idx += 2
-            elif op_info == 1:
-                stack_alloc_size = int.from_bytes(unwind_codes[code_idx + 2:code_idx + 6], 'little')
-                code_idx += 4
-        elif unwind_op == 2:  # UWOP_ALLOC_SMALL
-            stack_alloc_size = (op_info * 8) + 8
-        elif unwind_op == 3:  # UWOP_SET_FPREG
-            frame_register = op_info
-            frame_offset = code_offset
-
-        code_idx += 2
-
-    handler_addr = None
-    scopes = []
-    if flags & 1:  # UNW_FLAG_EHANDLER
-        handler_addr = idc.get_wide_dword(unwind_info_addr + 4 + num_codes * 2) + image_base
-        num_entries = idc.get_wide_dword(unwind_info_addr + 4 + num_codes * 2 + 4)
-        scope_table_addr = unwind_info_addr + 4 + num_codes * 2 + 8
-        # scopes = parse_c_scope_table(scope_table_addr, num_entries)
-        scopes = ""
-        debug_print(f"scope_table_addr: 0x{scope_table_addr:X}, num_entries:{num_entries}\n")
-
-    debug_print(f"Stack Allocation Size: {stack_alloc_size}, Nonvolatile Registers: {nonvolatile_registers}, Exception Handler Address: {handler_addr}, Scopes: {scopes}")
+    unwind_codes = parse_unwind_code(addr + 4, count_of_unwind_codes)
+    
+    # Initialize stack allocation size
+    stack_allocation_size = 0
+    
+    # Parse non-volatile registers and stack allocation size
+    reg_names = [
+        "RAX", "RCX", "RDX", "RBX", 
+        "RSP", "RBP", "RSI", "RDI", 
+        "R8", "R9", "R10", "R11", 
+        "R12", "R13", "R14", "R15"
+    ]
+    non_volatile_registers = []
+    i = 0
+    while i < len(unwind_codes):
+        code = unwind_codes[i]
+        if code[1] == 0:  # UWOP_PUSH_NONVOL
+            reg = reg_names[code[2]]
+            non_volatile_registers.append(reg)
+        elif code[1] == 4 or code[1] == 5:  # UWOP_SAVE_NONVOL or UWOP_SAVE_NONVOL_FAR
+            reg = reg_names[code[2]]
+            non_volatile_registers.append(f"{reg} (at offset {code[0]})")
+        elif code[1] == 1:  # UWOP_ALLOC_LARGE
+            if code[2] == 0:
+                stack_allocation_size += ida_bytes.get_wide_word(addr + 4 + i * 2 + 2)
+                i += 2  # Skip the next 2 bytes as they are part of the current operation
+            else:
+                stack_allocation_size += ida_bytes.get_wide_dword(addr + 4 + i * 2 + 2)
+                i += 2  # Skip the next 4 bytes as they are part of the current operation
+        elif code[1] == 2:  # UWOP_ALLOC_SMALL
+            stack_allocation_size += (code[2] + 1) * 8
+        i += 1
 
     return {
-        "stack_alloc_size": stack_alloc_size,
-        "frame_register": frame_register,
-        "nonvolatile_registers": nonvolatile_registers,
-        "handler_addr": handler_addr,
-        "scopes": scopes
+        "Version": version,
+        "Flags": flags,
+        "SizeOfProlog": size_of_prolog,
+        "CountOfUnwindCodes": count_of_unwind_codes,
+        "FrameRegister": frame_register,
+        "FrameRegisterOffset": frame_register_offset,
+        "UnwindCodes": unwind_codes,
+        "NonVolatileRegisters": non_volatile_registers,
+        "StackAllocationSize": stack_allocation_size
     }
-
 
 def process_function(func_start, image_base, pdata_start, pdata_end):
     """Process a single function and add comments based on UNWIND_INFO."""
     for addr in range(pdata_start, pdata_end, 12):
         start_rva = idc.get_wide_dword(addr)
         end_rva = idc.get_wide_dword(addr + 4)
-        # debug_print(f"Function  found: start=0x{image_base + start_rva:X}, end=0x{image_base + end_rva:X}")
         unwind_info_rva = idc.get_wide_dword(addr + 8)
-
-        comment = "--- Stack Unwinding Information ---\n"
 
         if func_start == image_base + start_rva:
             unwind_info_addr = image_base + unwind_info_rva
-            unwind_info = parse_unwind_info(unwind_info_addr, image_base)
-            comment += "Stack Allocation Size: {} bytes\n".format(unwind_info["stack_alloc_size"])
-            if unwind_info["frame_register"]:
-                comment += "Frame Register: {}\n".format(idaapi.get_reg_name(unwind_info["frame_register"], 8))
-            if unwind_info["nonvolatile_registers"]:
-                nonvol_regs = [idaapi.get_reg_name(reg, 8) for reg in unwind_info["nonvolatile_registers"]]
-                comment += "Saved Nonvolatile Registers: {}\n".format(", ".join(nonvol_regs))
-            if unwind_info["handler_addr"]:
-                comment += "Exception Handler Address: 0x{:X}\n".format(unwind_info["handler_addr"])
+            unwind_info = parse_unwind_info(unwind_info_addr)
+            if unwind_info is None:
+                continue
             
-            comment += "\n"
-            idc.set_func_cmt(func_start, comment, 0)
+            non_volatile_regs = ', '.join(unwind_info['NonVolatileRegisters'])
+
+            comment = (
+                "UnwindInfo:\n"
+                f"Version: {unwind_info['Version']}\n"
+                f"Flags: {unwind_info['Flags']}\n"
+                f"SizeOfProlog: {unwind_info['SizeOfProlog']}\n"
+                f"CountOfUnwindCodes: {unwind_info['CountOfUnwindCodes']}\n"
+                f"FrameRegister: {unwind_info['FrameRegister']}\n"
+                f"FrameRegisterOffset: {unwind_info['FrameRegisterOffset']}\n"
+                f"Stack Allocation Size: {unwind_info['StackAllocationSize']} bytes\n"
+                f"Non-volatile Registers: {non_volatile_regs}\n"
+            )
+
+            idc.set_func_cmt(func_start, comment, 1)
             debug_print(f"Added comment to function at 0x{func_start:X}")
             break
 
