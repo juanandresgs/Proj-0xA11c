@@ -1,14 +1,56 @@
 import idaapi
 import idautils
 import idc
+import ida_bytes
+
+# ------------------------------------------------------------
+# Flags
+# ------------------------------------------------------------
 
 # Set this flag to True to enable debug prints
 DEBUG = True
+
+# ------------------------------------------------------------
+# Utils
+# ------------------------------------------------------------
+
+def get_architecture_info():
+    # Access the global inf structure
+    info = idaapi.get_inf_structure()
+
+    # Retrieve and print the processor type
+    processor_type = info.procname
+    bitness = info.is_64bit() and "64-bit" or info.is_32bit() and "32-bit" or "16-bit"
+
+    # Determine the architecture
+    architecture = ""
+    if processor_type == "metapc":
+        if bitness == "64-bit":
+            architecture = "x86-64"
+        else:
+            architecture = "x86"
+    elif "arm" in processor_type:
+        if bitness == "64-bit":
+            architecture = "ARM64"
+        else:
+            architecture = "ARM"
+    else:
+        architecture = "Unknown"
+
+    debug_print("Processor type:", processor_type)
+    debug_print("Architecture:", architecture)
+    debug_print("Bitness:", bitness)
+    
+    return(architecture, bitness)
 
 def debug_print(msg):
     """Print debug messages if DEBUG flag is set."""
     if DEBUG:
         print(msg)
+        
+def error_print(msg):
+    """Print debug messages if DEBUG flag is set."""
+    print("[!]: {}".format(msg))
 
 def get_image_base():
     """Get the image base address of the loaded binary."""
@@ -24,6 +66,46 @@ def get_pdata_segment():
         return None, None
     debug_print(f".pdata segment found: start=0x{seg.start_ea:X}, end=0x{seg.end_ea:X}")
     return seg.start_ea, seg.end_ea
+
+# ------------------------------------------------------------
+# Calling Convention Analyzer
+# ------------------------------------------------------------
+
+def analyze_prologue(func, prologue_size):
+    """
+    Analyze the function prologue.
+
+    Args:
+        func (idaapi.func_t): The function object.
+
+    Returns:
+        dict: Information about the prologue.
+    """
+    prologue = {}
+    start_ea = func.start_ea
+    end_ea = start_ea + prologue_size  # Typically, the prologue is within the first few instructions
+
+    for ea in idautils.Heads(start_ea, end_ea):
+        mnem = idc.print_insn_mnem(ea)
+        if mnem in ["push", "mov", "sub"]:
+            prologue[ea] = idc.generate_disasm_line(ea, 0)
+
+    return prologue
+
+
+def suggest_calling_convention(unwind_info, func_start, image_base):
+    return "Test"
+    func = idaapi.get_func(func_start)
+    
+    if not func:
+        debug_print("Fail")
+    
+    prologue = analyze_prologue(func, unwind_info["SizeOfProlog"])
+    
+    
+# ------------------------------------------------------------
+# Parsing The Unwinding Structure
+# ------------------------------------------------------------
 
 def parse_scope_table(scope_table_addr, num_entries):
     """Parse the C_SCOPE_TABLE structure."""
@@ -84,6 +166,7 @@ def parse_unwind_info(addr):
     i = 0
     while i < len(unwind_codes):
         code = unwind_codes[i]
+        # debug_print("i = {}, val = {}, at offset: {} \n".format(i, code, hex(addr)))
         if code[1] == 0:  # UWOP_PUSH_NONVOL
             reg = reg_names[code[2]]
             non_volatile_registers.append(reg)
@@ -91,16 +174,17 @@ def parse_unwind_info(addr):
             reg = reg_names[code[2]]
             non_volatile_registers.append(f"{reg} (at offset {code[0]})")
         elif code[1] == 1:  # UWOP_ALLOC_LARGE
-            if code[2] == 0:
-                stack_allocation_size += ida_bytes.get_wide_word(addr + 4 + i * 2 + 2)
-                i += 2  # Skip the next 2 bytes as they are part of the current operation
+            if code[2] == 0: # OpInfo = 0
+                stack_allocation_size = 8 * ida_bytes.get_wide_word(addr + 4 + i * 2 + 2) # addr + 4 + i * 2 --> offset of the UNWIND_CODE
+                unwind_codes.remove(unwind_codes[i+1])
             else:
-                stack_allocation_size += ida_bytes.get_wide_dword(addr + 4 + i * 2 + 2)
-                i += 2  # Skip the next 4 bytes as they are part of the current operation
+                error_print("Large stack, opinfo 1, at offset: = {} CAN'T Parse IT!\n".format(hex(addr + 4 + i * 2)))
+                stack_allocation_size += -1
+                unwind_codes.remove(unwind_codes[i+1])
         elif code[1] == 2:  # UWOP_ALLOC_SMALL
             stack_allocation_size += (code[2] + 1) * 8
         i += 1
-
+    
     return {
         "Version": version,
         "Flags": flags,
@@ -113,20 +197,27 @@ def parse_unwind_info(addr):
         "StackAllocationSize": stack_allocation_size
     }
 
-def suggest_calling_convention(non_volatile_registers, stack_allocation_size):
-    """Suggest a calling convention based on the parsed information.
-    Calling Convention Suggestion: Added suggest_calling_convention function that suggests a calling
-    convention based on saved registers and stack allocation size.
-    If RBX, RDI, and RSI are saved, it suggests __fastcall.
-    If there is stack allocation, it suggests __stdcall.
-    Otherwise, it defaults to __cdecl."""
 
-    if "RBX" in non_volatile_registers and "RDI" in non_volatile_registers and "RSI" in non_volatile_registers:
-        return "__fastcall"
-    elif stack_allocation_size > 0:
-        return "__stdcall"
-    else:
-        return "__cdecl"
+def get_stack_size(func_ea, prologue_size):
+    """
+    Get the stack size allocated in the prolog of a function.
+    """
+    func = idaapi.get_func(func_ea)
+    if not func:
+        return None
+    stack_size = 0
+    # Iterate through instructions in the function
+    for head in idautils.Heads(func_ea, func_ea + prologue_size):
+        if idc.print_insn_mnem(head) == "sub" and idc.print_operand(head, 0) == "rsp":
+            if idc.print_operand(head, 1) == "eax" or idc.print_operand(head, 1) == "rax":
+                print("Stack allocation using register at offset: {}".format(hex(func_ea)))
+                break
+            else:
+                stack_size = idc.get_operand_value(head, 1)
+            break
+        
+    return stack_size
+
 
 def process_function(func_start, image_base, pdata_start, pdata_end):
     """Process a single function and add comments based on UNWIND_INFO."""
@@ -142,8 +233,14 @@ def process_function(func_start, image_base, pdata_start, pdata_end):
                 continue
             
             non_volatile_regs = ', '.join(unwind_info['NonVolatileRegisters'])
-            calling_convention = suggest_calling_convention(unwind_info['NonVolatileRegisters'], unwind_info['StackAllocationSize'])
-
+            calling_convention = suggest_calling_convention(unwind_info, func_start, image_base)
+            
+            if get_stack_size(func_start, unwind_info["SizeOfProlog"]) == unwind_info["StackAllocationSize"]:
+                is_diff_stack_size = False
+            else:
+                is_diff_stack_size = True
+                print("Stack doesn't match at offset {},".format(hex(func_start)))
+                
             comment = (
                 "UnwindInfo:\n"
                 f"Version: {unwind_info['Version']}\n"
@@ -155,11 +252,13 @@ def process_function(func_start, image_base, pdata_start, pdata_end):
                 f"Stack Allocation Size: {unwind_info['StackAllocationSize']} bytes\n"
                 f"Non-volatile Registers: {non_volatile_regs}\n"
                 f"Suggested Calling Convention: {calling_convention}\n"
+                f"Is different Stack Size?: {is_diff_stack_size}\n"
             )
 
             idc.set_func_cmt(func_start, comment, 1)
-            debug_print(f"Added comment to function at 0x{func_start:X} with calling convention suggestion: {calling_convention}")
+            # debug_print(f"Added comment to function at 0x{func_start:X} with calling convention suggestion: {calling_convention}")
             break
+
 
 def add_comments():
     """Add comments to each function based on UNWIND_INFO."""
@@ -171,5 +270,6 @@ def add_comments():
     for func_start in idautils.Functions():
         process_function(func_start, image_base, pdata_start, pdata_end)
 
+print("Started stack unwinding process...")
 add_comments()
 print("Finished adding comments based on UNWIND_INFO.")
