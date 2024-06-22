@@ -9,6 +9,7 @@ import ida_bytes
 
 # Set this flag to True to enable debug prints
 DEBUG = True
+function_without_unwind = []
 
 # ------------------------------------------------------------
 # Utils
@@ -67,6 +68,18 @@ def get_pdata_segment():
     debug_print(f".pdata segment found: start=0x{seg.start_ea:X}, end=0x{seg.end_ea:X}")
     return seg.start_ea, seg.end_ea
 
+def has_runtime_function(func_ea, base_address, pdata_start, pdata_end):
+    """
+    Check if the function has a RUNTIME_FUNCTION entry in the .pdata section.
+    """
+    for addr in range(pdata_start, pdata_end):
+        begin_address = idc.get_wide_dword(addr)
+        # debug_print("*** begin_address =  {}".format(hex(begin_address)))
+        # debug_print("*** func_ea =  {}".format(hex(func_ea)))
+        
+        if func_ea == begin_address + base_address:
+            return True
+    return False
 # ------------------------------------------------------------
 # Calling Convention Analyzer
 # ------------------------------------------------------------
@@ -197,6 +210,26 @@ def parse_unwind_info(addr):
         "StackAllocationSize": stack_allocation_size
     }
 
+def parse_prolog(func_ea, prologue_size):
+    # Iterate through instructions in the function
+    for head in idautils.Heads(func_ea, func_ea + prologue_size):
+        if idc.print_insn_mnem(head) == "call":
+            print("[+] Prolog at: {} calls: {}".format(hex(func_ea), idc.print_operand(head, 0)))
+            return True
+        
+    return False
+
+def find_rax_value(func_ea, prologue_size):
+    """
+    Get the value that is loaded into a given register. Support only eax/rax:
+    mov <reg>, values
+    """
+    for head in idautils.Heads(func_ea, func_ea + prologue_size):
+        if idc.print_insn_mnem(head) == "mov" and (idc.print_operand(head, 0) == "rax" or idc.print_operand(head, 0) == "eax"):
+            # debug_print("### {} {} {}".format(idc.print_insn_mnem(head), idc.print_operand(head, 0), idc.print_operand(head, 1)))
+            return idc.print_operand(head, 1)
+        
+    return -1
 
 def get_stack_size(func_ea, prologue_size):
     """
@@ -205,12 +238,14 @@ def get_stack_size(func_ea, prologue_size):
     func = idaapi.get_func(func_ea)
     if not func:
         return None
+    
     stack_size = 0
     # Iterate through instructions in the function
     for head in idautils.Heads(func_ea, func_ea + prologue_size):
         if idc.print_insn_mnem(head) == "sub" and idc.print_operand(head, 0) == "rsp":
             if idc.print_operand(head, 1) == "eax" or idc.print_operand(head, 1) == "rax":
-                print("Stack allocation using register at offset: {}".format(hex(func_ea)))
+                print("[+] Stack allocation using register at offset: {}".format(hex(func_ea)))
+                stack_size = find_rax_value(func_ea, prologue_size)
                 break
             else:
                 stack_size = idc.get_operand_value(head, 1)
@@ -225,7 +260,7 @@ def process_function(func_start, image_base, pdata_start, pdata_end):
         start_rva = idc.get_wide_dword(addr)
         end_rva = idc.get_wide_dword(addr + 4)
         unwind_info_rva = idc.get_wide_dword(addr + 8)
-
+        
         if func_start == image_base + start_rva:
             unwind_info_addr = image_base + unwind_info_rva
             unwind_info = parse_unwind_info(unwind_info_addr)
@@ -239,8 +274,9 @@ def process_function(func_start, image_base, pdata_start, pdata_end):
                 is_diff_stack_size = False
             else:
                 is_diff_stack_size = True
-                print("Stack doesn't match at offset {},".format(hex(func_start)))
+                print("\n[+] Stack doesn't match at offset {},".format(hex(func_start)))
                 
+            parse_prolog(func_start, unwind_info["SizeOfProlog"])
             comment = (
                 "UnwindInfo:\n"
                 f"Version: {unwind_info['Version']}\n"
@@ -256,8 +292,9 @@ def process_function(func_start, image_base, pdata_start, pdata_end):
             )
 
             idc.set_func_cmt(func_start, comment, 1)
-            # debug_print(f"Added comment to function at 0x{func_start:X} with calling convention suggestion: {calling_convention}")
-            break
+            return
+        
+    function_without_unwind.append(hex(func_start))
 
 
 def add_comments():
@@ -269,7 +306,9 @@ def add_comments():
     
     for func_start in idautils.Functions():
         process_function(func_start, image_base, pdata_start, pdata_end)
-
+        
+    print("Funcions without stack unwinding:\n {}".format('\n'.join(function_without_unwind)))
+            
 print("Started stack unwinding process...")
 add_comments()
 print("Finished adding comments based on UNWIND_INFO.")
