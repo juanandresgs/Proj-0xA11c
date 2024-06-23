@@ -10,6 +10,7 @@ import ida_bytes
 # Set this flag to True to enable debug prints
 DEBUG = True
 function_without_unwind = []
+IS_PRINT_NON_UNWIND_FUNCTION = False
 
 # ------------------------------------------------------------
 # Utils
@@ -214,7 +215,7 @@ def parse_prolog(func_ea, prologue_size):
     # Iterate through instructions in the function
     for head in idautils.Heads(func_ea, func_ea + prologue_size):
         if idc.print_insn_mnem(head) == "call":
-            print("[+] Prolog at: {} calls: {}".format(hex(func_ea), idc.print_operand(head, 0)))
+            print("\tProlog at: {} calls: {}".format(hex(func_ea), idc.print_operand(head, 0)))
             return True
         
     return False
@@ -244,7 +245,7 @@ def get_stack_size(func_ea, prologue_size):
     for head in idautils.Heads(func_ea, func_ea + prologue_size):
         if idc.print_insn_mnem(head) == "sub" and idc.print_operand(head, 0) == "rsp":
             if idc.print_operand(head, 1) == "eax" or idc.print_operand(head, 1) == "rax":
-                print("[+] Stack allocation using register at offset: {}".format(hex(func_ea)))
+                # print("[+] Stack allocation using register at offset: {}".format(hex(func_ea)))
                 stack_size = find_rax_value(func_ea, prologue_size)
                 break
             else:
@@ -274,7 +275,10 @@ def process_function(func_start, image_base, pdata_start, pdata_end):
                 is_diff_stack_size = False
             else:
                 is_diff_stack_size = True
-                print("\n[+] Stack doesn't match at offset {},".format(hex(func_start)))
+                print("[+] Stack doesn't match at offset: {}".format(hex(func_start)))
+                
+            if unwind_info['FrameRegister'] > 0:
+                print("[+] Stack frame allocation at offset: {}".format(hex(func_start)))
                 
             parse_prolog(func_start, unwind_info["SizeOfProlog"])
             comment = (
@@ -288,7 +292,7 @@ def process_function(func_start, image_base, pdata_start, pdata_end):
                 f"Stack Allocation Size: {unwind_info['StackAllocationSize']} bytes\n"
                 f"Non-volatile Registers: {non_volatile_regs}\n"
                 f"Suggested Calling Convention: {calling_convention}\n"
-                f"Is different Stack Size?: {is_diff_stack_size}\n"
+                f"Is different Stack Size? {is_diff_stack_size}\n\n"
             )
 
             idc.set_func_cmt(func_start, comment, 1)
@@ -306,8 +310,9 @@ def add_comments():
     
     for func_start in idautils.Functions():
         process_function(func_start, image_base, pdata_start, pdata_end)
-        
-    print("Funcions without stack unwinding:\n {}".format('\n'.join(function_without_unwind)))
+    
+    if IS_PRINT_NON_UNWIND_FUNCTION: 
+        print("Funcions without stack unwinding:\n {}".format('\n'.join(function_without_unwind)))
             
 print("Started stack unwinding process...")
 add_comments()
