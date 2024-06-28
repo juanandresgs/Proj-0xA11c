@@ -6,7 +6,6 @@ import ida_segment
 import ida_kernwin
 import idautils
 
-IS_STRING_FINDER = False
 
 # Determine the bitness of the binary
 is_64bit = idaapi.get_inf_structure().is_64bit()
@@ -19,6 +18,55 @@ else:
     slice_struct_name = "Rust:Slice"
     string_struct_name = "Rust:String"
         
+'''
+https://hex-rays.com/products/ida/support/idadoc/276.shtml
+'''
+def check_around(head):
+    '''
+    Check the instruction before and after the area where we suspect our String is at
+    '''
+    # If the is an instruction that sets an integer to the stack - it's not a string
+    # print(hex(head), idc.get_operand_type(head, 0), idc.get_operand_type(head, 1))
+    prev_head = idc.prev_head(head)
+    # print(hex(prev_head), idc.get_operand_type(prev_head, 0), idc.get_operand_type(prev_head, 1))
+    
+    prev_prev_head = idc.prev_head(prev_head)
+    # print(hex(prev_prev_head), idc.get_operand_type(prev_prev_head, 0), idc.get_operand_type(prev_prev_head, 1))
+    
+    
+    if idc.get_operand_type(prev_prev_head, 0) == idc.o_displ and idc.get_operand_type(prev_prev_head, 1) == idc.o_reg:
+       return False
+    return True
+    
+def find_strings_in_code(start_ea, end_ea):
+    '''
+    A String is where an integer, a pointer to a string, and another integer are all pushed to the stack in that order. 
+    To reduce false-postive we need to look a few instructions before and after the potential String location
+    '''
+    stack_operations = []
+
+    # Find potential String places
+    for head in idautils.Heads(start_ea, end_ea):
+        if idc.print_insn_mnem(head) == "mov":
+            op1 = idc.get_operand_value(head, 0)
+            op2 = idc.get_operand_value(head, 1)
+
+            # Check for stack operation saving an integer
+            # o_displ(4) Memory Reg [Base Reg + Index Reg + Displacement] phrase+addr
+            if idc.get_operand_type(head, 0) == idc.o_displ and idc.get_operand_type(head, 1) == idc.o_imm:
+                if idc.get_operand_value(head, 1) > 0:
+                    next_head = idc.next_head(head, end_ea)
+                    # Check for register holding a pointer to a string ***
+                    if idc.o_displ and idc.get_operand_type(next_head, 1) == idc.o_reg:
+                        next_next_head = idc.next_head(next_head, end_ea)
+                        # Check for another stack operation saving an integer
+                        if idc.get_operand_type(next_next_head, 0) == idc.o_displ and idc.get_operand_type(next_next_head, 1) == idc.o_imm:
+                            # check
+                            if check_around(head):
+                                stack_operations.append((head))
+                                # print("String at: {}".format(hex(head)))
+
+    return stack_operations
     
 def get_string_length(addr):
     """Get the length of the string at the given address."""
@@ -49,7 +97,7 @@ def find_slices_in_rdata():
                 next_qword = idc.get_qword(ea + 8)
             else:
                 next_qword = idc.get_wide_dword(ea + 4)
-            print("Found a slice --> offset:{}, content: {}, length: {}".format(hex(ea), idc.get_strlit_contents(ptr_value, -1, idc.STRTYPE_C), hex(next_qword)))     
+            # print("Found a slice --> offset:{}, content: {}, length: {}".format(hex(ea), idc.get_strlit_contents(ptr_value, -1, idc.STRTYPE_C), hex(next_qword)))     
             results.append(ea)
         if is_64bit:
             ea += 8
@@ -73,6 +121,24 @@ def is_in_rdata(addr):
 def find_slices_in_code(start_ea, end_ea):
     """Find instructions that load a string and its length into the stack.
     Searching in the .text area
+    
+    Find:
+        lea     rax, aSlice       ; "slice"
+        mov     [rsp+0D8h+var_30], rax
+        mov     [rsp+0D8h+var_28], 5
+    
+    Exclude:
+    
+        mov     edx, eax
+        mov     dword ptr [ecx+18h], offset aInvalidDistanc_1 ; "invalid distance too far back"
+        mov     dword ptr [eax+4], 3F51h
+        
+        
+    #define o_void        0  // No Operand                           ----------
+    #define o_reg         1  // General Register (al, ax, es, ds...) reg
+    #define o_mem         2  // Direct Memory Reference  (DATA)      addr
+    #define o_phrase      3  // Memory Ref [Base Reg + Index Reg]    phrase
+    #define o_displ       4  // Memory Reg [Base Reg + Index Reg + Displacement] phrase+addr
     """
     results = []
     
@@ -81,27 +147,28 @@ def find_slices_in_code(start_ea, end_ea):
         mnem = idc.print_insn_mnem(ea)
         
         # Check for lea or mov instruction (loading the address of a string)
-        if mnem in ["lea", "mov"]:
-            opnd1 = idc.get_operand_value(ea, 1)
-            if is_in_rdata(opnd1) and is_string(opnd1):
+        if mnem in ["lea"]:
+            reg = idc.print_operand(ea,0)
+            if idc.get_operand_type(ea, 0) == idc.o_reg and idc.get_operand_type(ea, 1) == idc.o_mem and "sub" not in idc.print_operand(ea, 1) and "stru" not in idc.print_operand(ea, 1):
                 # str_length = get_string_length(opnd1)
 
                 # Check the next instructions for the string address and length being pushed onto the stack
+                # ToDo - define a slice only when the number that is pushed in the second instruction is within one offset from the offset to which the pointer was pushed: rsp+0D8h+var_30 and rsp+0D8h+var_28
                 next_ea = idc.next_head(ea, end_ea)
-                if idc.print_insn_mnem(next_ea) == "mov" and "[rsp" in idc.print_operand(next_ea, 0):
+                if idc.print_insn_mnem(next_ea) == "mov" and "[" in idc.print_operand(next_ea, 0) and idc.get_operand_type(next_ea, 1) == idc.o_reg and reg == idc.print_operand(next_ea,1):
                     next_next_ea = idc.next_head(next_ea, end_ea)
-                    if idc.print_insn_mnem(next_next_ea) == "mov" and "[rsp" in idc.print_operand(next_next_ea, 0):
-                        int_value = idc.get_operand_value(next_next_ea, 1)
-                        # print("Found a slice --> content: {} length: {} offset: {}".format(
-                            # idc.get_strlit_contents(opnd1, int_value, idc.STRTYPE_C), int_value, hex(ea)))
-                        # results.append((ea, next_ea, next_next_ea))
-                        results.append(next_ea)
+                    if idc.get_operand_type(next_next_ea, 0) == idc.o_displ and idc.get_operand_type(next_next_ea, 1) == idc.o_imm:
+                        print(hex(next_next_ea))
+                        print(f"{idc.print_operand(next_next_ea, 1)}")
+                    
+                        if idc.get_operand_value(next_next_ea, 1) > 0:
+                            results.append(ea)
         ea = idc.next_head(ea, end_ea)
     return results
 
+# doesn't work
 def apply_structure(ea, sid, struct_name):
     """Apply the structure at the given address."""
-    # todo - change it to get the id based on the name or the otehr way around (ida_struct.get_struc_id("Rust::Slice64"))
     struct_size = ida_struct.get_struc_size(sid)
 
     # Apply the structure to the address
@@ -119,28 +186,34 @@ if slice_sid == idc.BADADDR:
     print(f"Structure doesn't exists!\n Run the script 'define_string_structs.py' first")
 
 else:
-    #Look for slices in the .rdata section
-    print("Looking for slices in the rdata segment...")
+    # Look for slices in the .rdata section
+    print("Looking for slices in the .rdata segment...")
     results = find_slices_in_rdata()
     if results:
         for ea in results:
-            # print(f"Found slice at: {hex(ea)}")
+            print(f"Found slice pointer with length at: {hex(ea)} in .rdata")
             apply_structure(ea, slice_sid, slice_struct_name)
 
-slice_sid = idc.get_struc_id(string_struct_name)
+    print("Looking for slices in the .text segment...")
+    # Look for slices in the .text section
+    for func_start in idautils.Functions():
+        func_end = idc.find_func_end(func_start)
+        results = find_slices_in_code(func_start, func_end)
+        for ea in results:
+            print(f"Found slice pointer with length at: {hex(ea)} in .text")
+            # apply_structure(ea, slice_sid, slice_struct_name)
+
+    
+string_sid = idc.get_struc_id(string_struct_name)
 if slice_sid == idc.BADADDR:
     print(f"Structure doesn't exists!\n Run the script 'define_string_structs.py' first")
-# for func_start in idautils.Functions():
-#     func_end = idc.find_func_end(func_start)
-#     results = find_slices_in_code(func_start, func_end)
-#     for ea in results:
-#         print(f"Found string pointer with length at: {hex(ea)}")
-#         apply_structure(ea, slice_sid, slice_struct_name)
+
+else:
+    print("Looking gor strings in the .text segment...")
     
-# Test
-# results = find_slices_in_code(5368714784, 5368715747)
-# for ea in results:
-#     print(f"Found sslice at: {hex(ea)}")
-#     apply_structure(ea, slice_sid, slice_struct_name)
-    
-    
+    for func_start in idautils.Functions():
+        func_end = idc.find_func_end(func_start)
+        results = find_strings_in_code(func_start, func_end)
+        for ea in results:
+            print(f"Found slice pointer with length at: {hex(ea)} in .text")
+            # apply_structure(ea, slice_sid, slice_struct_name)
