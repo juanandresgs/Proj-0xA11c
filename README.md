@@ -4,26 +4,26 @@
 
 ## Dependency:
 
-IDuhLib
+- [IDuhLib](https://github.com/juanandresgs/IDuh.git)
 
 ## Works:
 
-identify_rust_binaries.yara
-cargo_dependency.py
-compiler_version.py
+- identify_rust_binaries.yara
+- cargo_dependency.py
+- compiler_version.py
 
 ## Needs testing
 
-parse_unwind.py
-define_string_structs.py
-reverse_xmmword_strings.py
+- parse_unwind.py
+- define_string_structs.py
+- reverse_xmmword_strings.py
 
 ## UNUPDATED
 
-structure_pack.h
+- structure_pack.h
 
 ## Work In Progress:
 
-PathHandler (JAGS)
-apply_strings.py (NF)
-find_BYREF (JAGS)
+- PathHandler (JAGS)
+- apply_strings.py (NF)
+- find_BYREF (JAGS)
