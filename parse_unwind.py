@@ -185,7 +185,7 @@ else:
     print("Bitness: 32-bit.")
     
 inf = idaapi.get_inf_structure()
-proc_name = inf.procName
+proc_name = inf.procname
 print(f"Architecture is: {proc_name}")
 
 add_comments()
