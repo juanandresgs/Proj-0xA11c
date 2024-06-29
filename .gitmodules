@@ -1,6 +1,0 @@
-[submodule "IDuhLib.py"]
-	path = IDuhLib.py
-	url = https://github.com/juanandresgs/IDuh.git
-[submodule "IDuh"]
-	path = IDuh
-	url = https://github.com/juanandresgs/IDuh.git
