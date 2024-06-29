@@ -4,12 +4,12 @@
 //
 
 /*
- * Structure name: UnwindInfo
- * Description: Fixed UNWIND_INFO structure for PE files, replaces inaccurate
- * IDA Pro implementation Last Updated: 06.18.2024:10:22PM (ET)
- * version 2
+ * Structure name: UNWIND_INFO_HDR (Replacing existing structure because the
+ * definition is bad) Description: Fixed UNWIND_INFO structure for PE files,
+ * replaces inaccurate IDA Pro implementation Last Updated: 06.18.2024:10:22PM
+ * (ET) version 2
  */
-struct UnwindInfo {
+struct UNWIND_INFO_HDR {
   unsigned __int8 Version : 3;
   unsigned __int8 Flags : 5;
   unsigned __int8 SizeOfProlog;
@@ -20,19 +20,19 @@ struct UnwindInfo {
 };
 
 /*
- * Structure name: Rust::Slice64
+ * Structure name: Rust__Slice64
  * Description: Rust slice structure for 64-bit
  */
-struct Rust::Slice64 {
+struct rust__Slice64 {
   unsigned long long content; // Pointer
   unsigned long long length;  // Integer
 };
 
 /*
- * Structure name: Rust::String64
+ * Structure name: Rust__String64
  * Description: Rust string structure for 64-bit
  */
-struct Rust::String64 {
+struct rust__String64 {
   unsigned long long capacity; // Integer
   unsigned long long content;  // Pointer
   unsigned long long length;   // Integer

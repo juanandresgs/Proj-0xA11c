@@ -11,12 +11,12 @@ import idautils
 is_64bit = idaapi.get_inf_structure().is_64bit()
 if is_64bit:
     print("64-bit executable detected")
-    slice_struct_name = "Rust::Slice64"
-    string_struct_name = "Rust::String64"
+    slice_struct_name = "rust__Slice64"
+    string_struct_name = "rust__String64"
 else:
     print("32-bit executable detected")
-    slice_struct_name = "Rust:Slice"
-    string_struct_name = "Rust:String"
+    slice_struct_name = "rust__Slice"
+    string_struct_name = "rust__String"
         
 '''
 https://hex-rays.com/products/ida/support/idadoc/276.shtml
