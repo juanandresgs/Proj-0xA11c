@@ -5,6 +5,17 @@ import idc
 # Set this flag to True to enable debug prints
 DEBUG = True
 
+# Determine the bitness of the binary
+is_64bit = idaapi.get_inf_structure().is_64bit()
+if is_64bit:
+    print("64-bit executable detected")
+    slice_struct_name = "Rust::Slice64"
+    string_struct_name = "Rust::String64"
+else:
+    print("32-bit executable detected")
+    slice_struct_name = "Rust:Slice"
+    string_struct_name = "Rust:String"
+
 def debug_print(msg):
     """Print debug messages if DEBUG flag is set."""
     if DEBUG:
@@ -114,19 +125,50 @@ def parse_unwind_info(addr):
     }
 
 def suggest_calling_convention(non_volatile_registers, stack_allocation_size):
-    """Suggest a calling convention based on the parsed information.
-    Calling Convention Suggestion: Added suggest_calling_convention function that suggests a calling
-    convention based on saved registers and stack allocation size.
-    If RBX, RDI, and RSI are saved, it suggests __fastcall.
-    If there is stack allocation, it suggests __stdcall.
-    Otherwise, it defaults to __cdecl."""
+    """Suggest the calling convention based on saved non-volatile registers, stack allocation size, and architecture."""
+    architecture = idaapi.ph.id
+    
+    debug_print(f"Non-volatile registers: {non_volatile_registers}")
+    debug_print(f"Stack allocation size: {stack_allocation_size}")
+    debug_print(f"Architecture: {architecture}")
 
-    if "RBX" in non_volatile_registers and "RDI" in non_volatile_registers and "RSI" in non_volatile_registers:
-        return "__fastcall"
-    elif stack_allocation_size > 0:
-        return "__stdcall"
-    else:
-        return "__cdecl"
+    if architecture == idaapi.PLFM_386:
+        # Intel 80x86
+        if "EBP" in non_volatile_registers:
+            if len(non_volatile_registers) > 2:
+                return "__stdcall"
+            return "__cdecl"
+        if "ECX" in non_volatile_registers and "EDX" in non_volatile_registers:
+            return "__fastcall"
+        if "ECX" in non_volatile_registers:
+            return "__thiscall"
+    elif architecture == idaapi.PLFM_ARM:
+        # Advanced RISC Machines
+        if "R7" in non_volatile_registers:
+            return "__stdcall"
+        if len(non_volatile_registers) > 2:
+            return "__fastcall"
+    elif architecture == idaapi.PLFM_ARM64:
+        if "FP" in non_volatile_registers:
+            return "__stdcall"
+        if len(non_volatile_registers) > 2:
+            return "__fastcall"
+    elif architecture == idaapi.PLFM_MIPS:
+        # MIPS
+        if "S0" in non_volatile_registers:
+            return "__stdcall"
+        if len(non_volatile_registers) > 2:
+            return "__fastcall"
+    elif architecture == idaapi.PLFM_PPC:
+        # POWE_PC
+        if "R31" in non_volatile_registers:
+            return "__stdcall"
+        if len(non_volatile_registers) > 2:
+            return "__fastcall"
+    
+    if len(non_volatile_registers) == 0 and stack_allocation_size == 0:
+        return "__syscall"
+    return "__usercall"
 
 def process_function(func_start, image_base, pdata_start, pdata_end):
     """Process a single function and add comments based on UNWIND_INFO."""
