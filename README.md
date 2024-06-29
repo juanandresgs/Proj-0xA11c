@@ -5,6 +5,7 @@
 ## Dependency:
 
 - [IDuhLib](https://github.com/juanandresgs/IDuh.git)
+  After cloning, make sure you run `git submodule update --init --recursive`
 
 ## Works:
 
