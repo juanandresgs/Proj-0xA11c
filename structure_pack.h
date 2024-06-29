@@ -20,20 +20,31 @@ struct UNWIND_INFO_HDR {
 };
 
 /*
- * Structure name: Rust__Slice64
+ * Structure name: rust__Slice64
  * Description: Rust slice structure for 64-bit
  */
 struct rust__Slice64 {
-  unsigned long long content; // Pointer
-  unsigned long long length;  // Integer
+  char *content;             // Pointer
+  unsigned long long length; // Integer
 };
 
 /*
- * Structure name: Rust__String64
+ * Structure name: rust__String64
  * Description: Rust string structure for 64-bit
  */
 struct rust__String64 {
   unsigned long long capacity; // Integer
-  unsigned long long content;  // Pointer
+  char *content;               // Pointer
   unsigned long long length;   // Integer
+};
+
+/*
+ * Structure name: rust__DebugInfo64
+ * Description: Panic structures
+ */
+struct rust__DebugInfo64 {
+  char *FilePath;
+  DWORD _pad[2];
+  unsigned __int32 LineNumber;
+  unsigned __int32 ColumnNumber;
 };
