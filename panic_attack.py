@@ -3,8 +3,8 @@ import ida_bytes
 import os
 import idaapi
 import idc
-idaapi.require("IDuhLib")
-from IDuhLib import *
+idaapi.require("IDuh.IDuhLib")
+from IDuh.IDuhLib import *
 
 ############ Path Handler ############
 # Version 0.5                      #

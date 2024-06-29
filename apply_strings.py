@@ -1,10 +1,12 @@
-import idaapi
 import idc
 import ida_struct
 import ida_bytes
 import ida_segment
 import ida_kernwin
 import idautils
+import idaapi
+idaapi.require("IDuh.IDuhLib")
+from IDuh.IDuhLib import *
 
 
 # Determine the bitness of the binary

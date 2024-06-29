@@ -8,25 +8,22 @@
 
 ## Works:
 
+- structure_pack.h
 - identify_rust_binaries.yara
 - cargo_dependency.py
 - compiler_version.py
+- parse_unwind.py
+- panic_attack.py (JAGS)
 
 ## Needs testing
 
-- parse_unwind.py
 - define_string_structs.py
-- reverse_xmmword_strings.py
-
-## UNUPDATED
-
-- structure_pack.h
 
 ## Work In Progress:
 
-- PathHandler (JAGS)
 - apply_strings.py (NF)
 - find_BYREF (JAGS)
+- reverse_xmmword_strings.py (NF)
 
 ---
 
@@ -52,7 +49,7 @@
 
 ## Apply Structures and Gain info
 
-[ ]- parse_unwind.py (Dependent on UNWIND_INFO_HDR structure)
+[x]- parse_unwind.py (Dependent on UNWIND_INFO_HDR structure)
 [ ]- define_string_structs.py (To be replaced by structure_creator)
 [ ]- apply_strings.py (NF) (dependent on structure_creator)
 
@@ -61,17 +58,22 @@
 [ ]- reverse_xmmword_strings.py
 [ ]- find_BYREF (JAGS)
 
-##
+## Recover Metadata
 
-[ ]- PathHandler
+[x]- panic_attack.py
 
 # Required Structures
 
 At this time, we are opting for structures being added manually because there's something wrong with IDA Python and it's going to give us a fucking ulcer to try to get it fixed.
 
-## Updated UNWIND_INFO_HDR
+Latest structures are kept in structure_pack.h
 
 ```
+// Structure pack to keep updated definitions.
+// If possible, have scripts source from here instead of implementing their own
+// copies.
+//
+
 /*
  * Structure name: UNWIND_INFO_HDR (Replacing existing structure because the
  * definition is bad) Description: Fixed UNWIND_INFO structure for PE files,
@@ -92,18 +94,40 @@ struct UNWIND_INFO_HDR {
  * Structure name: rust__Slice64
  * Description: Rust slice structure for 64-bit
  */
-struct rust::Slice64 {
-  unsigned long long content; // Pointer
-  unsigned long long length;  // Integer
+struct rust__Slice64 {
+  char *content;  // Pointer
+  __int64 length; // Integer
 };
 
 /*
  * Structure name: rust__String64
  * Description: Rust string structure for 64-bit
  */
-struct rust::String64 {
-  unsigned long long capacity; // Integer
-  unsigned long long content;  // Pointer
-  unsigned long long length;   // Integer
+struct rust__String64 {
+  __int64 capacity; // Integer
+  char *content;    // Pointer
+  __int64 length;   // Integer
+};
+
+/*
+ * Structure name: rust__DebugInfo64
+ * Description: Panic structures
+ */
+struct rust__DebugInfo64 {
+  char *FilePath;
+  __int64 LengthOfFilePath;
+  unsigned __int32 LineNumber;
+  unsigned __int32 ColumnNumber;
+};
+
+/*
+ * Structure name: rust__DebugInfo
+ * Description: Panic structures
+ */
+struct rust__DebugInfo {
+  char *FilePath;
+  unsigned __int32 LengthOfFilePath;
+  unsigned __int32 LineNumber;
+  unsigned __int32 ColumnNumber;
 };
 ```

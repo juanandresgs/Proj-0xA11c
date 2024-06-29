@@ -1,7 +1,7 @@
 import idaapi
 import requests
-idaapi.require("IDuhLib")
-from IDuhLib import *
+idaapi.require("IDuh.IDuhLib")
+from IDuh.IDuhLib import *
 
 def get_version_from_commit(commit: str):
     url = f"https://github.com/rust-lang/rust/branch_commits/{commit}"

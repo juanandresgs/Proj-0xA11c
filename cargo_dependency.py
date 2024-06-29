@@ -1,7 +1,7 @@
 import idaapi
-idaapi.require("IDuhLib")
-from IDuhLib import *
 import re
+idaapi.require("IDuh.IDuhLib")
+from IDuh.IDuhLib import *
 
 def guess_dependencies():
     regexes = [
