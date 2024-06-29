@@ -1,8 +1,3 @@
-// Structure pack to keep updated definitions.
-// If possible, have scripts source from here instead of implementing their own
-// copies.
-//
-
 /*
  * Structure name: UNWIND_INFO_HDR (Replacing existing structure because the
  * definition is bad) Description: Fixed UNWIND_INFO structure for PE files,
@@ -24,8 +19,17 @@ struct UNWIND_INFO_HDR {
  * Description: Rust slice structure for 64-bit
  */
 struct rust__Slice64 {
-  char *content;             // Pointer
-  unsigned long long length; // Integer
+  char *content;  // Pointer
+  __int64 length; // Integer
+};
+
+/*
+ * Structure name: rust__Slice
+ * Description: Rust slice structure for 32-bit
+ */
+struct rust__Slice {
+  char *content;           // Pointer
+  unsigned __int32 length; // Integer
 };
 
 /*
@@ -33,9 +37,19 @@ struct rust__Slice64 {
  * Description: Rust string structure for 64-bit
  */
 struct rust__String64 {
-  unsigned long long capacity; // Integer
-  char *content;               // Pointer
-  unsigned long long length;   // Integer
+  __int64 capacity; // Integer
+  char *content;    // Pointer
+  __int64 length;   // Integer
+};
+
+/*
+ * Structure name: rust__String
+ * Description: Rust string structure for 32-bit
+ */
+struct rust__String4 {
+  unsigned __int32 capacity; // Integer
+  char *content;             // Pointer
+  unsigned __int32 length;   // Integer
 };
 
 /*
@@ -43,8 +57,17 @@ struct rust__String64 {
  * Description: Panic structures
  */
 struct rust__DebugInfo64 {
-  char *FilePath;
-  DWORD _pad[2];
+  rust__Slice64 FilePath;
+  unsigned __int32 LineNumber;
+  unsigned __int32 ColumnNumber;
+};
+
+/*
+ * Structure name: rust__DebugInfo64
+ * Description: Panic structures
+ */
+struct rust__DebugInfo {
+  rust__Slice FilePath;
   unsigned __int32 LineNumber;
   unsigned __int32 ColumnNumber;
 };
