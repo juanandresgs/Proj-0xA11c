@@ -5,7 +5,7 @@
 ## Dependency:
 
 - [IDuhLib](https://github.com/juanandresgs/IDuh.git)
-  After cloning, make sure you run `git submodule update --init --recursive`
+  - After cloning, make sure you run `git submodule update --init --recursive`
 
 ## Works:
 
@@ -19,12 +19,12 @@
 ## Needs testing
 
 - define_string_structs.py
+- reverse_xmmword_strings.py (NF)
 
 ## Work In Progress:
 
-- apply_strings.py (NF)
+- apply_strings.py (NF/JAGS -- NEEDS REFACTORING)
 - find_BYREF (JAGS)
-- reverse_xmmword_strings.py (NF)
 
 ---
 
@@ -51,13 +51,13 @@
 ## Apply Structures and Gain info
 
 [x]- parse_unwind.py (Dependent on UNWIND_INFO_HDR structure)
-[ ]- define_string_structs.py (To be replaced by structure_creator)
-[ ]- apply_strings.py (NF) (dependent on structure_creator)
+[ ]- define_string_structs.py (To be replaced by structure_creator, when IDAPython stops being obnoxious)
+[ ]- apply_strings.py (NF) (Dependent on rust**Slice/64 and rust**String/64 structures)
 
 ## Decompiler Improvements
 
-[ ]- reverse_xmmword_strings.py
-[ ]- find_BYREF (JAGS)
+[ ]- reverse_xmmword_strings.py (NEEDS REFACTORING)
+[ ]- find_BYREF (JAGS) (WIP)
 
 ## Recover Metadata
 
@@ -70,11 +70,6 @@ At this time, we are opting for structures being added manually because there's 
 Latest structures are kept in structure_pack.h
 
 ```
-// Structure pack to keep updated definitions.
-// If possible, have scripts source from here instead of implementing their own
-// copies.
-//
-
 /*
  * Structure name: UNWIND_INFO_HDR (Replacing existing structure because the
  * definition is bad) Description: Fixed UNWIND_INFO structure for PE files,
@@ -101,6 +96,15 @@ struct rust__Slice64 {
 };
 
 /*
+ * Structure name: rust__Slice
+ * Description: Rust slice structure for 32-bit
+ */
+struct rust__Slice {
+  char *content;           // Pointer
+  unsigned __int32 length; // Integer
+};
+
+/*
  * Structure name: rust__String64
  * Description: Rust string structure for 64-bit
  */
@@ -111,23 +115,31 @@ struct rust__String64 {
 };
 
 /*
+ * Structure name: rust__String
+ * Description: Rust string structure for 32-bit
+ */
+struct rust__String4 {
+  unsigned __int32 capacity; // Integer
+  char *content;             // Pointer
+  unsigned __int32 length;   // Integer
+};
+
+/*
  * Structure name: rust__DebugInfo64
  * Description: Panic structures
  */
 struct rust__DebugInfo64 {
-  char *FilePath;
-  __int64 LengthOfFilePath;
+  rust__Slice64 FilePath;
   unsigned __int32 LineNumber;
   unsigned __int32 ColumnNumber;
 };
 
 /*
- * Structure name: rust__DebugInfo
+ * Structure name: rust__DebugInfo64
  * Description: Panic structures
  */
 struct rust__DebugInfo {
-  char *FilePath;
-  unsigned __int32 LengthOfFilePath;
+  rust__Slice FilePath;
   unsigned __int32 LineNumber;
   unsigned __int32 ColumnNumber;
 };
