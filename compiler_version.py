@@ -1,6 +1,17 @@
 import idaapi
+import requests
 idaapi.require("IDuhLib")
 from IDuhLib import *
+
+def get_version_from_commit(commit: str):
+    url = f"https://github.com/rust-lang/rust/branch_commits/{commit}"
+    res = requests.get(url, timeout=20).text
+    regex = re.compile(r'href="/rust-lang/rust/releases/tag/([0-9\.]+)"')
+
+    if not regex.findall(res):
+        return None
+
+    return regex.findall(res)[-1]
 
 def extract_rust_compiler_version():
     """
@@ -9,26 +20,34 @@ def extract_rust_compiler_version():
     Returns:
     list: A list of all matching Rust compiler version strings found.
     """
-    pattern = rb"rustc version \d+\.\d+\.\d+ \([0-9a-f]{9} \d{4}-\d{2}-\d{2}\)"
+    # For stripped binaires the version can be found using the commit. This regex should be able to find it
+    
+    pattern = rb"rustc/([a-z0-9]{40})"
     regex = re.compile(pattern)
-    versions = set()
+    commits = set()
     readable_strings = get_all_strings(min_length=4)
     
     for addr, string in readable_strings:
         matches = regex.findall(string.encode('utf-8'))
         for match in matches:
-            versions.add(match.decode('utf-8'))  # Use add to ensure uniqueness
-
-    return versions
+            commits.add(match.decode('utf-8'))  # Use add to ensure uniqueness
+    
+    return commits
 
 def main():
-    found_versions = extract_rust_compiler_version()
-    if len(found_versions) == 1:
-        print("Found Rust compiler version:", found_versions.pop())
-    elif len(found_versions) > 1:
+    commits = extract_rust_compiler_version()
+    if len(commits) == 1:
+        commit = commits.pop()
+        version = get_version_from_commit(commit)
+        if version is None:
+            print(f"No tag matching this commit {commit}, getting latest version")
+        else:
+            print(f"rustc version: {version}, for commit: {commit}")
+        
+    elif len(commits) > 1:
         print("Multiple distinct Rust compiler versions found:")
-        for version in found_versions:
-            print(version)
+        for comm in commits:
+            print(comm)
     else:
         print("No Rust compiler version found in the binary.")
 
