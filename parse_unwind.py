@@ -3,16 +3,14 @@ import idautils
 import idc
 
 # Set this flag to True to enable debug prints
-DEBUG = True
+DEBUG = False
 
 # Determine the bitness of the binary
 is_64bit = idaapi.get_inf_structure().is_64bit()
 if is_64bit:
-    print("64-bit executable detected")
     slice_struct_name = "Rust::Slice64"
     string_struct_name = "Rust::String64"
 else:
-    print("32-bit executable detected")
     slice_struct_name = "Rust:Slice"
     string_struct_name = "Rust:String"
 
@@ -184,23 +182,48 @@ def process_function(func_start, image_base, pdata_start, pdata_end):
                 continue
             
             non_volatile_regs = ', '.join(unwind_info['NonVolatileRegisters'])
-            calling_convention = suggest_calling_convention(unwind_info['NonVolatileRegisters'], unwind_info['StackAllocationSize'])
+            # calling_convention = suggest_calling_convention(unwind_info['NonVolatileRegisters'], unwind_info['StackAllocationSize'])
 
-            comment = (
-                "UnwindInfo:\n"
-                f"Version: {unwind_info['Version']}\n"
-                f"Flags: {unwind_info['Flags']}\n"
-                f"SizeOfProlog: {unwind_info['SizeOfProlog']}\n"
-                f"CountOfUnwindCodes: {unwind_info['CountOfUnwindCodes']}\n"
-                f"FrameRegister: {unwind_info['FrameRegister']}\n"
-                f"FrameRegisterOffset: {unwind_info['FrameRegisterOffset']}\n"
-                f"Stack Allocation Size: {unwind_info['StackAllocationSize']} bytes\n"
-                f"Non-volatile Registers: {non_volatile_regs}\n"
-                f"Suggested Calling Convention: {calling_convention}\n"
-            )
-
+            fields = []
+                
+            #     f"Version: {unwind_info['Version']}\n" if unwind_info['Version'] not in [0, None] else "",
+            #     f"Flags: {unwind_info['Flags']}\n" if unwind_info['Flags'] not in [0, None] else "",
+            #     f"SizeOfProlog: {unwind_info['SizeOfProlog']}\n" if unwind_info['SizeOfProlog'] not in [0, None] else "",
+            #     f"CountOfUnwindCodes: {unwind_info['CountOfUnwindCodes']}\n" if unwind_info['CountOfUnwindCodes'] not in [0, None] else "",
+            #     f"FrameRegister: {unwind_info['FrameRegister']}\n" if unwind_info['FrameRegister'] not in [0, None] else "",
+            #     f"FrameRegisterOffset: {unwind_info['FrameRegisterOffset']}\n" if unwind_info['FrameRegisterOffset'] not in [0, None] else "",
+            #     f"Stack Allocation Size: {unwind_info['StackAllocationSize']} bytes\n" if unwind_info['StackAllocationSize'] not in [0, None] else "",
+            #     f"Non-volatile Registers: {non_volatile_regs}\n" if non_volatile_regs not in [0, None] else "",
+            #     # f"Suggested Calling Convention: {calling_convention}\n"
+            # ]
+            
+            if unwind_info['Version'] > 0:
+                fields.append(f"Version: {unwind_info['Version']}")
+            
+            if unwind_info['Flags'] not in [0, None]:
+                fields.append(f"Flags: {unwind_info['Flags']}")
+            
+            if unwind_info['SizeOfProlog'] > 0 :
+                fields.append(f"Size Of Prolog: {unwind_info['SizeOfProlog']}")
+            
+            if unwind_info['CountOfUnwindCodes'] > 0 :
+                fields.append(f"Count Of Unwind Codes: {unwind_info['CountOfUnwindCodes']}")
+           
+            if unwind_info['FrameRegister'] > 0 :
+                fields.append(f"Frame Register: {unwind_info['FrameRegister']}")
+            
+            if unwind_info['FrameRegisterOffset'] > 0 :
+                fields.append(f"Frame Register Offset: {unwind_info['FrameRegisterOffset']}")
+            
+            if unwind_info['StackAllocationSize'] > 0 :
+                fields.append(f"Stack Allocation Size: {unwind_info['StackAllocationSize']}")
+            
+            if len(non_volatile_regs) > 0 :
+                fields.append(f"Non-volatile Registers: {non_volatile_regs}")
+            
+            
+            comment = "Unwind Info-\n" + "\n".join(fields)
             idc.set_func_cmt(func_start, comment, 1)
-            debug_print(f"Added comment to function at 0x{func_start:X} with calling convention suggestion: {calling_convention}")
             break
 
 def add_comments():
@@ -212,6 +235,17 @@ def add_comments():
     
     for func_start in idautils.Functions():
         process_function(func_start, image_base, pdata_start, pdata_end)
+
+print("Start parsing stack unwind info...")
+
+if is_64bit:
+    print("Bitness: 64-bit")
+else:
+    print("Bitness: 32-bit.")
+    
+inf = idaapi.get_inf_structure()
+proc_name = inf.procName
+print(f"Architecture is: {proc_name}")
 
 add_comments()
 print("Finished adding comments based on UNWIND_INFO.")
