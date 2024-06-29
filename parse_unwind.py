@@ -7,12 +7,6 @@ DEBUG = False
 
 # Determine the bitness of the binary
 is_64bit = idaapi.get_inf_structure().is_64bit()
-if is_64bit:
-    slice_struct_name = "Rust::Slice64"
-    string_struct_name = "Rust::String64"
-else:
-    slice_struct_name = "Rust:Slice"
-    string_struct_name = "Rust:String"
 
 def debug_print(msg):
     """Print debug messages if DEBUG flag is set."""
@@ -124,49 +118,7 @@ def parse_unwind_info(addr):
 
 def suggest_calling_convention(non_volatile_registers, stack_allocation_size):
     """Suggest the calling convention based on saved non-volatile registers, stack allocation size, and architecture."""
-    architecture = idaapi.ph.id
-    
-    debug_print(f"Non-volatile registers: {non_volatile_registers}")
-    debug_print(f"Stack allocation size: {stack_allocation_size}")
-    debug_print(f"Architecture: {architecture}")
-
-    if architecture == idaapi.PLFM_386:
-        # Intel 80x86
-        if "EBP" in non_volatile_registers:
-            if len(non_volatile_registers) > 2:
-                return "__stdcall"
-            return "__cdecl"
-        if "ECX" in non_volatile_registers and "EDX" in non_volatile_registers:
-            return "__fastcall"
-        if "ECX" in non_volatile_registers:
-            return "__thiscall"
-    elif architecture == idaapi.PLFM_ARM:
-        # Advanced RISC Machines
-        if "R7" in non_volatile_registers:
-            return "__stdcall"
-        if len(non_volatile_registers) > 2:
-            return "__fastcall"
-    elif architecture == idaapi.PLFM_ARM64:
-        if "FP" in non_volatile_registers:
-            return "__stdcall"
-        if len(non_volatile_registers) > 2:
-            return "__fastcall"
-    elif architecture == idaapi.PLFM_MIPS:
-        # MIPS
-        if "S0" in non_volatile_registers:
-            return "__stdcall"
-        if len(non_volatile_registers) > 2:
-            return "__fastcall"
-    elif architecture == idaapi.PLFM_PPC:
-        # POWE_PC
-        if "R31" in non_volatile_registers:
-            return "__stdcall"
-        if len(non_volatile_registers) > 2:
-            return "__fastcall"
-    
-    if len(non_volatile_registers) == 0 and stack_allocation_size == 0:
-        return "__syscall"
-    return "__usercall"
+    pass
 
 def process_function(func_start, image_base, pdata_start, pdata_end):
     """Process a single function and add comments based on UNWIND_INFO."""
@@ -185,17 +137,6 @@ def process_function(func_start, image_base, pdata_start, pdata_end):
             # calling_convention = suggest_calling_convention(unwind_info['NonVolatileRegisters'], unwind_info['StackAllocationSize'])
 
             fields = []
-                
-            #     f"Version: {unwind_info['Version']}\n" if unwind_info['Version'] not in [0, None] else "",
-            #     f"Flags: {unwind_info['Flags']}\n" if unwind_info['Flags'] not in [0, None] else "",
-            #     f"SizeOfProlog: {unwind_info['SizeOfProlog']}\n" if unwind_info['SizeOfProlog'] not in [0, None] else "",
-            #     f"CountOfUnwindCodes: {unwind_info['CountOfUnwindCodes']}\n" if unwind_info['CountOfUnwindCodes'] not in [0, None] else "",
-            #     f"FrameRegister: {unwind_info['FrameRegister']}\n" if unwind_info['FrameRegister'] not in [0, None] else "",
-            #     f"FrameRegisterOffset: {unwind_info['FrameRegisterOffset']}\n" if unwind_info['FrameRegisterOffset'] not in [0, None] else "",
-            #     f"Stack Allocation Size: {unwind_info['StackAllocationSize']} bytes\n" if unwind_info['StackAllocationSize'] not in [0, None] else "",
-            #     f"Non-volatile Registers: {non_volatile_regs}\n" if non_volatile_regs not in [0, None] else "",
-            #     # f"Suggested Calling Convention: {calling_convention}\n"
-            # ]
             
             if unwind_info['Version'] > 0:
                 fields.append(f"Version: {unwind_info['Version']}")
@@ -248,4 +189,4 @@ proc_name = inf.procName
 print(f"Architecture is: {proc_name}")
 
 add_comments()
-print("Finished adding comments based on UNWIND_INFO.")
+print("Done.")
