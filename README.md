@@ -4,7 +4,7 @@
 
 ## Dependency:
 
-- [IDuhLib](https://github.com/juanandresgs/IDuh.git)
+- [FeatureProof](https://github.com/juanandresgs/FeatureProof.git)
   - After cloning, make sure you run `git submodule update --init --recursive`
 
 ## Works:

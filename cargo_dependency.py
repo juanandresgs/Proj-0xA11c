@@ -1,7 +1,7 @@
 import idaapi
 import re
-idaapi.require("IDuh.IDuhLib")
-from IDuh.IDuhLib import *
+idaapi.require("FeatureProof.FeatureProof")
+from FeatureProof.FeatureProof import *
 
 def guess_dependencies():
     regexes = [

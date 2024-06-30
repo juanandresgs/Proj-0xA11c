@@ -3,8 +3,9 @@ import ida_bytes
 import os
 import idaapi
 import idc
-idaapi.require("IDuh.IDuhLib")
-from IDuh.IDuhLib import *
+idaapi.require("FeatureProof.FeatureProof")
+from FeatureProof.FeatureProof import *
+
 
 ############ Path Handler ############
 # Version 0.5                      #

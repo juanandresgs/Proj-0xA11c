@@ -5,8 +5,8 @@ import ida_segment
 import ida_kernwin
 import idautils
 import idaapi
-idaapi.require("IDuh.IDuhLib")
-from IDuh.IDuhLib import *
+idaapi.require("FeatureProof.FeatureProof")
+from FeatureProof.FeatureProof import *
 
 
 # Determine the bitness of the binary
