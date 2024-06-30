@@ -1,0 +1,6 @@
+[submodule "FeatureProof.py"]
+	path = FeautreProof.py
+	url = https://github.com/juanandresgs/FeatureProof.git
+[submodule "FeatureProof"]
+	path = FeatureProof
+	url = https://github.com/juanandresgs/FeatureProof.git
