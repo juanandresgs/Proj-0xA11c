@@ -10,6 +10,7 @@ from FeatureProof.FeatureProof import *
 ############ Path Handler ############
 # Version 0.5                      #
 ######################################
+# NOTE: Where the symbol is a constant, the type isn't being applied properly.
 
 
 
@@ -98,7 +99,6 @@ def create_formatted_comment(string_content, line_number, column_number):
         print(f"An error occurred while creating the comment: {e}")
         return None
 
-
 #######################################
 #GOAL:Make sure structure is added
 #######################################
@@ -155,7 +155,7 @@ for addr, symbol in paths:
     # print(name) # DEBUG
     for x in xrefs:
         if get_segment_name_at_address(format_ea_t(x)) == path_segment:
-            print(f"Suspected Path struct at: ", x) # DEBUG
+            # print(f"Suspected Path struct at: ", x) # DEBUG
             formatted_x = format_ea_t(x)
             set_symbol_type_to_custom_struct(formatted_x, debug_struct)
             string_content, line_number, column_number = get_struct_values(formatted_x)

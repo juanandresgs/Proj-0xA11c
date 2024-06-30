@@ -71,3 +71,23 @@ struct rust__DebugInfo {
   unsigned __int32 LineNumber;
   unsigned __int32 ColumnNumber;
 };
+
+/*
+ * Structure name: rust__ExceptionHandler64
+ * Description: (Unidentified )Exception Handler structure for 64-bit
+ */
+struct rust__ExceptionHandler64 {
+  void *Error_or_PanicPath;
+  __int64 SetTo1;
+  void *FunctionOffset;
+};
+
+/*
+ * Structure name: rust__ExceptionHandler
+ * Description: (Unidentified )Exception Handler structure for 32-bit (untested)
+ */
+struct rust__ExceptionHandler64 {
+  void *Error_or_PanicPath;
+  __int64 SetTo1;
+  void *FunctionOffset;
+};
