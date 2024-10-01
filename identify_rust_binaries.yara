@@ -13,17 +13,27 @@ rule Rust {
         $a03 = "RUST_LOG"
         $z01 = "dropbox_watchdog"
 
+        $s0 = "rustc"
+
     condition:
+        (#s0 > 100 and uint32be(0) == 0xCAFEBABE) //Mach-O FAT_MAGIC
+        or
         (
-            (uint16(0) == 0x5a4d) or 
-			(uint32(0)==0x464c457f) or 
-			(uint32(0) == 0xfeedfacf) or 
-			(uint32(0) == 0xcffaedfe) or 
-			(uint32(0) == 0xfeedface) or 
-			(uint32(0) == 0xcefaedfe) 
+            (
+                (uint16(0) == 0x5a4d) or 
+                (uint32(0) == 0x464c457f) or 
+                (uint32(0) == 0xfeedfacf) or 
+                (uint32(0) == 0xcffaedfe) or 
+                (uint32(0) == 0xfeedface) or 
+                (uint32(0) == 0xcefaedfe) 
+            )
+            and
+            (
+                1 of ($a*)
+                and 
+                not any of ($z*)
+            )
         )
-        and(
-            1 of ($a*) and not any of ($z*)
-        )
+        
         
 }
