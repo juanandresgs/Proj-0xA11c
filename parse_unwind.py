@@ -116,10 +116,91 @@ def parse_unwind_info(addr):
         "StackAllocationSize": stack_allocation_size
     }
 
+
 def suggest_calling_convention(non_volatile_registers, stack_allocation_size):
     """Suggest the calling convention based on saved non-volatile registers, stack allocation size, and architecture."""
     pass
 
+
+def is__cdecl(non_volatile_regs):
+    # Determine the architecture and bitness
+    inf = idaapi.get_inf_structure()
+    is_64bit = inf.is_64bit()
+    is_32bit = inf.is_32bit()
+    arch = inf.procName
+    
+    # Non-volatile registers according to calling conventions
+    non_volatile_regs_32bit = ['ebx', 'esi', 'edi', 'ebp']
+    non_volatile_regs_64bit = ['rbx', 'rbp', 'r12', 'r13', 'r14', 'r15']
+
+    if is_32bit and arch in ['metapc']:
+        # In 32-bit __cdecl, callee does not need to save non-volatile registers
+        # Check if the non-volatile registers saved are within the typical set
+        for reg in non_volatile_regs:
+            if reg not in non_volatile_regs_32bit:
+                return False
+        # Allocated size does not affect __cdecl determination in 32-bit
+        return True
+    
+    elif is_64bit and arch in ['metapc']:
+        # In 64-bit __cdecl, callee does not need to save non-volatile registers
+        # Check if the non-volatile registers saved are within the typical set
+        for reg in non_volatile_regs:
+            if reg not in non_volatile_regs_64bit:
+                return False
+        # Allocated size does not affect __cdecl determination in 64-bit
+        return True
+    
+    # If not 32-bit or 64-bit metapc, we cannot determine __cdecl
+    return False
+
+
+def can_be_fastcall(non_volatile_regs, allocated_size):
+    # Determine the architecture and bitness
+    inf = idaapi.get_inf_structure()
+    is_64bit = inf.is_64bit()
+    is_32bit = inf.is_32bit()
+    arch = inf.procName
+    
+    # Non-volatile registers according to calling conventions
+    non_volatile_regs_32bit = ['ebx', 'esi', 'edi', 'ebp']
+    non_volatile_regs_64bit = ['rbx', 'rbp', 'r12', 'r13', 'r14', 'r15']
+
+    if is_32bit and arch in ['metapc']:
+        # Check if the non-volatile registers saved are within the typical set
+        for reg in non_volatile_regs:
+            if reg not in non_volatile_regs_32bit:
+                return False
+        # The allocated size check is not needed for fastcall determination
+        return True
+    
+    elif is_64bit and arch in ['metapc']:
+        # Check if the non-volatile registers saved are within the typical set
+        for reg in non_volatile_regs:
+            if reg not in non_volatile_regs_64bit:
+                return False
+        # The allocated size check is not needed for fastcall determination
+        return True
+    
+    # If not 32-bit or 64-bit metapc, we cannot determine fastcall
+    return False
+
+
+def get_possible_calling_conventions(saved_registers, allocated_size):
+    calling_convnetions = []
+    
+    is_cdecl = is__cdecl(saved_registers)
+    print(is_cdecl)
+    if is_cdecl:
+        calling_convnetions.append("__cdecl")
+    
+    is_cdecl = is__cdecl(saved_registers)
+    print(is_cdecl)
+    if is_cdecl:
+        calling_convnetions.append("__cdecl")
+    return calling_convnetions
+    
+    
 def process_function(func_start, image_base, pdata_start, pdata_end):
     """Process a single function and add comments based on UNWIND_INFO."""
     for addr in range(pdata_start, pdata_end, 12):
@@ -165,6 +246,8 @@ def process_function(func_start, image_base, pdata_start, pdata_end):
             
             comment = "Unwind Info-\n" + "\n".join(fields)
             idc.set_func_cmt(func_start, comment, 1)
+            debug_print(f"Added comment to function at 0x{func_start:X}")
+
             break
 
 def add_comments():
