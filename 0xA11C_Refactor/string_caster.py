@@ -63,11 +63,12 @@ logger.debug(f"rdata_xmmword_w_code_refs: {rdata_xmmword_w_code_refs}")
 for str_segm, str_addr, str_content, xref_segm, xref_addr in rdata_strings_w_rdata_refs:
     logger.debug(f"{str_segm}:{str_addr}, {str_content} {xref_segm}:{xref_addr}")
     # Check for Path Structs set by panic_attack.py
-    xref_type = fp.get_symbol_type(format_ea_t(xref_addr))
-    if not xref_type:
-        logger.debug(f"{xref_addr} has no type. Check for unidentified edgecase.")
-        continue
-    elif "Rust_DebugInfo" in xref_type:
+    xref_type = fp.get_symbol_type(fp.format_ea_t(xref_addr))
+    # DEBUG: xref_type taken as None for offset pointers?
+    #if not xref_type:
+    #    logger.debug(f"{xref_addr} has no type ({xref_}). Check for unidentified edgecase.")
+    #    continue
+    if xref_type == "Rust_DebugInfo":
         continue
     else:
         if str_content.endswith(".rs") and ('\\' in str_content or '/' in str_content):
@@ -78,8 +79,6 @@ for str_segm, str_addr, str_content, xref_segm, xref_addr in rdata_strings_w_rda
         logger.debug(f"Changed to slice: {xref_segm}:{xref_addr}:{xref_type}->{fp.get_symbol_type(fp.format_ea_t(xref_addr))}")
         # TODO: Double check all of the string lengths based on these structs
         fp.rename_symbol_at_address(fp.format_ea_t(xref_addr),("rsli_" + fp.sanitize_ida_symbol_name(str_content[:30])))
-
-# TODO: NEED TO HANDLE DUPLICATE NAMES
 
 # for str_segm, str_addr, str_content, xref_segm, xref_addr in rdata_strings_w_code_refs:
 #     print(f"{str_segm}:{str_addr}, {str_content} {xref_segm}:{xref_addr}") #DEBUG
