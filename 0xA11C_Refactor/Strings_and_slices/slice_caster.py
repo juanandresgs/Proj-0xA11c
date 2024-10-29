@@ -59,6 +59,8 @@ logger.debug(f"rdata_xmmword_w_code_refs: {rdata_xmmword_w_code_refs}")
 # Look for XMMs in rdata w XREFs from text? DOESN'T WORK
 # Can't walk to find them, need to come from the CODE side
 
+# TODO: Handle slices/strings that are defined on the stack/in the code, the content is in rdata but the rust slice struct is in the code itself. ("Immutable" string in strings_code.exe)
+
 # Check rdata refs for defined struct types
 for str_segm, str_addr, str_content, xref_segm, xref_addr in rdata_strings_w_rdata_refs:
     logger.debug(f"{str_segm}:{str_addr}, {str_content} {xref_segm}:{xref_addr}")

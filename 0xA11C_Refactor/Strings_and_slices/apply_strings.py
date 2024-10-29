@@ -13,12 +13,10 @@ if fp.is_64bit():
     logger.info("64-bit executable detected")
     slice_struct_name = "Rust_Slice64"
     string_struct_name = "Rust_String64"
-    next_qword = fp.get_qword_at_address(ea + 8)
 else:
     logger.info("32-bit executable detected")
     slice_struct_name = "Rust_Slice"
     string_struct_name = "Rust_String"
-    next_qword = fp.get_dword_at_address(ea + 4) # What is meant by Wide DWORD?
 
 
 '''
@@ -92,18 +90,18 @@ def find_slices_in_rdata():
     end_ea = seg.end_ea
 
     while ea < end_ea:
-        if idc.is_code(idc.get_full_flags(ea)): # TODO: Convert to FP function
+        if idc.is_code(idc.get_full_flags(ea)):
             ea = fp.get_next_instruction_address(ea, end_ea)
             continue
 
-        ptr_value = fp.get_qword_at_address(ea) # TODO: Convert to FP function
+        ptr_value = fp.get_qword_at_address(ea)
         if idc.is_loaded(ptr_value) and idc.is_strlit(ida_bytes.get_full_flags(ptr_value)):
-            logger.debug("Found a slice --> offset:{}, content: {}, length: {}".format(hex(ea), idc.get_strlit_contents(ptr_value, -1, idc.STRTYPE_C), hex(next_qword)))
+            #logger.debug("Found a slice --> offset:{}, content: {}, length: {}".format(hex(ea), idc.get_strlit_contents(ptr_value, -1, idc.STRTYPE_C), hex(next_qword)))
             results.append(ea)
         if fp.is_64bit():
-            ea += 8
+            next_qword = fp.get_qword_at_address(ea += 8)
         else:
-            ea += 4
+            next_qword = fp.get_dword_at_address(ea += 4)
 
     return results
 
