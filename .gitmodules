@@ -1,0 +1,5 @@
+[submodule "FeatureProof"]
+	branch = main
+[submodule "0xA11C_Refactor/FeatureProof"]
+	path = 0xA11C_Refactor/FeatureProof
+	url = https://github.com/juanandresgs/FeatureProof.git
