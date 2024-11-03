@@ -119,11 +119,20 @@ struct Rust_ExceptionHandler {
 Structures for print and formatting
 */
 // Represents the formatting setup for Rust's `Display` trait.
-struct Rust_FormatStruct{
-    // __int32 *value_ptr; // Points to the integer value (OptionInt)
-    void *value_ptr; 
-    void (*format_fn)(__int32 *); // Pointer to the function for formatting `i32`
-} ;
+struct Rust_FormatStruct {
+    __int32 *value_ptr;        // Pointer to the value for formatting
+    void *format_fn;           // Generic pointer to a format function
+
+    // Function to set the format function pointer
+    void set_format_fn(void *fn) {
+        format_fn = fn;
+    }
+
+    // Function to get the format function pointer cast to the expected type
+    void (__fastcall *get_format_fn())(__int32 *) {
+        return (void (__fastcall *)(__int32 *))format_fn;
+    }
+};
 
 // Represents the final argument list passed to `_print`
 struct Rust_PrintArgs {
