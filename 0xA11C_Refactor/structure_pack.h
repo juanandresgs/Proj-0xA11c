@@ -115,3 +115,22 @@ struct Rust_ExceptionHandler {
 };
 #pragma pack(pop)
 
+/* 
+Structures for print and formatting
+*/
+// Represents the formatting setup for Rust's `Display` trait.
+struct Rust_FormatStruct{
+    // __int32 *value_ptr; // Points to the integer value (OptionInt)
+    void *value_ptr; 
+    void (*format_fn)(__int32 *); // Pointer to the function for formatting `i32`
+} ;
+
+// Represents the final argument list passed to `_print`
+struct Rust_PrintArgs {
+    void *format_context; // Context pointer, possibly constant metadata
+    __int64 arg_count;    // Likely count of format arguments, here set to 2
+    Rust_FormatStruct *format_data; // Pointer to FormatStruct holding value and formatting function
+    __int64 flag;         // Control flag for print behavior, here set to 1
+    __int64 padding1;     // Placeholder (zeroed), possibly for alignment
+    __int64 padding2;     // Placeholder (zeroed), possibly for alignment
+};
