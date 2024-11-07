@@ -12,7 +12,7 @@ def guess_dependencies():
         rb'index.crates.io.[^\\\/]+.([^\\\/]+)',
         rb'registry.src.[^\\\/]+.([^\\\/]+)'
     ]
-    readable_strings = get_all_strings(min_length=4)
+    readable_strings = fp.get_all_strings(min_length=4)
     result = set()
 
     for addr, string in readable_strings:
@@ -32,7 +32,7 @@ def guess_toolchain():
     }
 
     for item, value in known_heuristics.items():
-        if item in get_all_strings(min_length=4):
+        if item in fp.get_all_strings(min_length=4):
             return value
 
     return None
@@ -42,17 +42,17 @@ def main():
 
     matches = guess_dependencies()
     if matches:
-        print("Rust dependecies:")
+        logger.info("Rust dependecies:")
         for match in matches:
-            print(f"{match}")
+            logger.info(f"{match}")
     else:
-        print("No Rust crate dependency strings found.")
+        logger.warn("No Rust crate dependency strings found.")
 
     toolchain = guess_toolchain()
     if toolchain:
-        print(f"Rust toolchain: {toolchain}")
+        logger.info(f"Rust toolchain: {toolchain}")
     else:
-        print("No toolchain was found")
+        logger.warn("No toolchain was found")
 
 if __name__ == "__main__":
     main()
