@@ -22,19 +22,19 @@ Where symbols are available, we recommend switching name demangling settings: Op
 | ./structure_pack.h                                  | Header file containing necessary structures for the project                                   |   ✅     |
 | ./identify_rust_binaries.yara                       | YARA rule to identify Rust binaries                                                           | ✅       |
 | Metadata |
-| ./Metadata/cargo_dependency copy.py                 | Script to guess dependencies from the binary                                                  | ✅ /       |
-| ./Metadata/compiler_version copy.py                 | Script to extract the Rust compiler version from the binary                                   | ✅       |
+| ./Metadata/cargo_dependency.py                 | Script to guess dependencies from the binary                                                  | ✅ |
+| ./Metadata/compiler_version copy.py                 | Script to extract the Rust compiler version from the binary                                   | x |
  Strings and Slices |
 | ./Strings_and_slices/apply_strings.py               | Script to apply string structures in IDA Pro                                                  | ❌       |
-| ./Strings_and_slices/panic_attack copy.py           | Script to handle panic attack paths                                                           | ✅       |
+| ./Strings_and_slices/panic_attack copy.py           | Script to handle panic attack paths                                                           | x       |
 | ./Strings_and_slices/reverse_xmmword_strings copy.py| Script to reverse xmmword strings                                                             | ❌       |
-| ./Strings_and_slices/slice_caster.py                | Script to cast slices in IDA Pro                                                              | ✅       |
+| ./Strings_and_slices/slice_caster.py                | Script to cast slices in IDA Pro                                                              | x       |
 | ./Strings_and_slices/string_caster.py               | Placeholder for the final string caster script                                                | ❌       |
 | Variables |
 | ./parse_unwind copy.py                              | Script to parse unwind information                                                            |  ❌   |
 | find_BYREF (JAGS)                                  | Script to find BYREF variables                                                                | ❌       |
 | Functions |
-| ./parse_pdata_vtable.py                             | Script to parse .pdata and comment references                                                 | ✅       |
+| ./parse_pdata_vtable.py                             | Script to parse .pdata and comment references                                                 | x       |
 
 ## Work In Progress:
 
