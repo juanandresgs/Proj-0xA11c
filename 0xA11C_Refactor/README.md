@@ -23,7 +23,7 @@ Where symbols are available, we recommend switching name demangling settings: Op
 | identify_rust_binaries.yara | YARA rule to identify Rust binaries | ✅ |
 | Metadata |
 | cargo_dependency.py | Extract dependencies | ✅ |
-| compiler_version.py | Extract Rust compiler version | ✅ |
+| compiler_version.py | Determine Rust compiler version | ✅ |
 | Strings and Slices |
 | apply_strings.py | Apply Rust string and slice structures | ❌ |
 | panic_attack.py | Handle panic macro paths | X |

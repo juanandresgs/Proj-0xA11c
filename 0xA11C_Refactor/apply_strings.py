@@ -5,7 +5,7 @@ from FeatureProof.FeatureProof import Middleware
 from FeatureProof.TypeInfo import *
 
 fp = Middleware()
-fp.set_logging_level(level=logging.INFO)
+fp.set_logging_level(level=logging.DEBUG) # Set this back to INFO for publication
 logger = fp.logger
 
 # Set bitness specific constants
@@ -17,7 +17,6 @@ else:
     logger.info("32-bit executable detected")
     slice_struct_name = "Rust_Slice"
     string_struct_name = "Rust_String"
-
 
 '''
     https://hex-rays.com/products/ida/support/idadoc/276.shtml
@@ -58,10 +57,10 @@ def find_strings_in_code(start_ea, end_ea):
             # o_displ(4) Memory Reg [Base Reg + Index Reg + Displacement] phrase+addr
             if fp.get_operand_type(head, 0) == TYPE_DISPLACEMENT and fp.get_operand_type(head, 1) == TYPE_IMMEDIATE:
                 if fp.get_operand_value(head, 1) > 0:
-                    next_head = fp.get_next_instruction_address(head, end_ea)
+                    next_head = fp.get_next_instruction_address(end_ea)
                     # Check for register holding a pointer to a string ***
                     if TYPE_DISPLACEMENT and fp.get_operand_type(next_head, 1) == TYPE_REGISTER:
-                        next_next_head = fp.get_next_instruction_address(next_head, end_ea)
+                        next_next_head = fp.get_next_instruction_address(next_head)
                         # Check for another stack operation saving an integer
                         if fp.get_operand_type(next_next_head, 0) == TYPE_DISPLACEMENT and fp.get_operand_type(next_next_head, 1) == TYPE_IMMEDIATE:
                             # check
@@ -99,9 +98,11 @@ def find_slices_in_rdata():
             #logger.debug("Found a slice --> offset:{}, content: {}, length: {}".format(hex(ea), idc.get_strlit_contents(ptr_value, -1, idc.STRTYPE_C), hex(next_qword)))
             results.append(ea)
         if fp.is_64bit():
-            next_qword = fp.get_qword_at_address(ea += 8)
+            ea += 8
+            next_qword = fp.get_qword_at_address(ea)
         else:
-            next_qword = fp.get_dword_at_address(ea += 4)
+            ea += 4
+            next_qword = fp.get_dword_at_address(ea)
 
     return results
 
@@ -147,24 +148,23 @@ def find_slices_in_code(start_ea, end_ea):
 
         # Check for lea or mov instruction (loading the address of a string)
         if mnem in ["lea"]:
-            reg = idc.print_operand(ea,0) #TODO: Convert to FP function.
+            reg = idc.print_operand(ea, 0) #TODO: Convert to FP function.
             if fp.get_operand_type(ea, 0) == TYPE_REGISTER and fp.get_operand_type(ea, 1) == TYPE_MEM and "sub" not in idc.print_operand(ea, 1) and "stru" not in idc.print_operand(ea, 1):
                 # str_length = get_string_length(opnd1)
 
                 # Check the next instructions for the string address and length being pushed onto the stack
                 # ToDo - define a slice only when the number that is pushed in the second instruction is within one offset from the offset to which the pointer was pushed: rsp+0D8h+var_30 and rsp+0D8h+var_28
-                next_ea = fp.get_next_instruction_address(ea, end_ea)
-                if fp.get_instruction(next_ea) == "mov" and "[" in idc.print_operand(next_ea, 0) and fp.get_operand_type(next_ea, 1) == TYPE_REGISTER and reg == idc.print_operand(next_ea,1):
-                    next_next_ea = fp.get_next_instruction_address(next_ea, end_ea)
+                next_ea = fp.get_next_instruction_address(ea)
+                if fp.get_instruction(next_ea) == "mov" and "[" in idc.print_operand(next_ea, 0) and fp.get_operand_type(next_ea, 1) == TYPE_REGISTER and reg == idc.print_operand(next_ea, 1):
+                    next_next_ea = fp.get_next_instruction_address(next_ea)
                     if fp.get_operand_type(next_next_ea, 0) == TYPE_DISPLACEMENT and fp.get_operand_type(next_next_ea, 1) == TYPE_IMMEDIATE:
                         print(hex(next_next_ea))
                         print(f"{idc.print_operand(next_next_ea, 1)}")
 
                         if fp.get_operand_value(next_next_ea, 1) > 0:
                             results.append(ea)
-        ea = fp.get_next_instruction_address(ea, end_ea)
+        ea = fp.get_next_instruction_address(ea)
     return results
-
 # doesn't work
 def apply_structure(ea, sid, struct_name):
     """Apply the structure at the given address."""
@@ -195,7 +195,7 @@ else:
 
     logger.info("Looking for slices in the .text segment...")
     # Look for slices in the .text section
-    for func_start in idautils.Functions():
+    for func_start in fp.walk_functions():
         func_end = idc.find_func_end(func_start) #TODO: Convert to FP function.
         results = find_slices_in_code(func_start, func_end)
         for ea in results:
