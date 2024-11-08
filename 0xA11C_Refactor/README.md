@@ -22,12 +22,12 @@ Where symbols are available, we recommend switching name demangling settings: Op
 | structure_pack.h  | Header file containing necessary structures for the project | ✅ |
 | identify_rust_binaries.yara | YARA rule to identify Rust binaries | ✅ |
 | Metadata |
-| Metadata/cargo_dependency.py | Script to guess dependencies from the binary | ✅ |
-| Metadata/compiler_version.py | Script to extract the Rust compiler version from the binary | X |
+| cargo_dependency.py | Extract dependencies | ✅ |
+| compiler_version.py | Extract Rust compiler version | X |
 | Strings and Slices |
-| apply_strings.py | Script to apply string structures in IDA Pro | ❌ |
-| panic_attack.py | Script to handle panic attack paths | X |
-| reverse_xmmword_strings.py| Script to reverse xmmword strings | ❌ |
+| apply_strings.py | Apply Rust string and slice structures | ❌ |
+| panic_attack.py | Handle panic macro paths | X |
+| reverse_xmmword_strings.py| Reverse xmmword strings | ❌ |
 | slice_caster.py | Script to cast slices in IDA Pro | X |
 | string_caster.py | Placeholder for the final string caster script | ❌ |
 | Variables |
