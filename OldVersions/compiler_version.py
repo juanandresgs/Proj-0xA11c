@@ -1,11 +1,8 @@
 import idaapi
 import requests
 idaapi.require("FeatureProof.FeatureProof")
-from FeatureProof.FeatureProof import Middleware
+from FeatureProof.FeatureProof import *
 
-fp = Middleware()
-fp.set_logging_level(level=logging.INFO)
-logger = fp.logger
 
 def get_version_from_commit(commit: str):
     url = f"https://github.com/rust-lang/rust/branch_commits/{commit}"
@@ -25,10 +22,17 @@ def extract_rust_compiler_version():
     list: A list of all matching Rust compiler version strings found.
     """
     # For stripped binaires the version can be found using the commit. This regex should be able to find it
-    matches = fp.get_regex_matches_from_strings(r"rustc/([a-z0-9]{40})")
+    
+    pattern = rb"rustc/([a-z0-9]{40})"
+    regex = re.compile(pattern)
     commits = set()
-    for match in matches:
-        commits.add(match[1])  # Use add to ensure uniqueness
+    readable_strings = get_all_strings(min_length=4)
+    
+    for addr, string in readable_strings:
+        matches = regex.findall(string.encode('utf-8'))
+        for match in matches:
+            commits.add(match.decode('utf-8'))  # Use add to ensure uniqueness
+    
     return commits
 
 def main():
@@ -40,7 +44,7 @@ def main():
             print(f"No tag matching this commit {commit}, getting latest version")
         else:
             print(f"rustc version: {version}, for commit: {commit}")
-
+        
     elif len(commits) > 1:
         print("Multiple distinct Rust compiler versions found:")
         for comm in commits:
@@ -50,3 +54,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
