@@ -15,29 +15,30 @@ Before running the 0xA11C scripts, please import the 'structure_pack.h' file in 
 
 Where symbols are available, we recommend switching name demangling settings: Options -> Demangled Names -> Show demangled names as: Names.
 
-## Component Order and Status:
+## Component Status
 
-| Component                                      | Description                                                                                   | Status   |
-|-----------------------------------------------------|-----------------------------------------------------------------------------------------------|----------|
-| ./structure_pack.h                                  | Header file containing necessary structures for the project                                   |   ✅     |
-| ./identify_rust_binaries.yara                       | YARA rule to identify Rust binaries                                                           | ✅       |
+| Component  | Description | Status |
+|------------|-------------|--------|
+| structure_pack.h  | Header file containing necessary structures for the project | ✅ |
+| identify_rust_binaries.yara | YARA rule to identify Rust binaries | ✅ |
 | Metadata |
-| ./Metadata/cargo_dependency.py                 | Script to guess dependencies from the binary                                                  | ✅ |
-| ./Metadata/compiler_version copy.py                 | Script to extract the Rust compiler version from the binary                                   | x |
- Strings and Slices |
-| ./Strings_and_slices/apply_strings.py               | Script to apply string structures in IDA Pro                                                  | ❌       |
-| ./Strings_and_slices/panic_attack copy.py           | Script to handle panic attack paths                                                           | x       |
-| ./Strings_and_slices/reverse_xmmword_strings copy.py| Script to reverse xmmword strings                                                             | ❌       |
-| ./Strings_and_slices/slice_caster.py                | Script to cast slices in IDA Pro                                                              | x       |
-| ./Strings_and_slices/string_caster.py               | Placeholder for the final string caster script                                                | ❌       |
+| Metadata/cargo_dependency.py | Script to guess dependencies from the binary | ✅ |
+| Metadata/compiler_version.py | Script to extract the Rust compiler version from the binary | X |
+| Strings and Slices |
+| apply_strings.py | Script to apply string structures in IDA Pro | ❌ |
+| panic_attack.py | Script to handle panic attack paths | X |
+| reverse_xmmword_strings.py| Script to reverse xmmword strings | ❌ |
+| slice_caster.py | Script to cast slices in IDA Pro | X |
+| string_caster.py | Placeholder for the final string caster script | ❌ |
 | Variables |
-| ./parse_unwind copy.py                              | Script to parse unwind information                                                            |  ❌   |
-| find_BYREF (JAGS)                                  | Script to find BYREF variables                                                                | ❌       |
+| parse_unwind.py | Script to parse unwind information | ❌ |
+| find_BYREF (JAGS) | Script to find BYREF variables | ❌ |
 | Functions |
-| ./parse_pdata_vtable.py                             | Script to parse .pdata and comment references                                                 | x       |
+| parse_pdata_vtable.py | Parse .pdata and comment references | X |
 
-## Work In Progress:
-
+## Work In Progress
+| Component  | Description | Status |
+|------------|-------------|--------|
 
 ---
 
@@ -46,6 +47,7 @@ Where symbols are available, we recommend switching name demangling settings: Op
 ## Re: compiler_version.py
 
 - In the case of 4272b75fe652298ab880b2975d94b5a5a139be6c24c1e92136188e1531ce9890, loading the binary in a standard fashion cut off the section with the clang llvm rustc version string. Need to investigate what happened. When manually loaded, it's there. What else is missing?
+- [ ] (Retest post refactoring)
 
 ---
 
