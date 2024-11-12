@@ -75,7 +75,7 @@ def combine_path_to_symbol_name(file_path, line_number, column_number):
         symbol_name = f"{filename}_{line_number}_{column_number}"
 
         # Sanitize the symbol name for IDA Pro
-        sanitized_symbol_name = sanitize_ida_symbol_name(symbol_name)
+        sanitized_symbol_name = fp.sanitize_ida_symbol_name(symbol_name)
 
         return sanitized_symbol_name
     except Exception as e:
