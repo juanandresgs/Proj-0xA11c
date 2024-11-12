@@ -12,7 +12,7 @@ def parse_pdata_and_comment_references():
     # Get the .pdata section
     pdata_section = fp.get_segment_by_name('.pdata')
     if pdata_section is None:
-        print("No .pdata section found.")
+        logging.info("No .pdata section found.")
         return
 
     # Define the start and end of the .pdata section
@@ -24,7 +24,7 @@ def parse_pdata_and_comment_references():
         # Read function RVA from the current .pdata entry
         func_rva = fp.get_wide_dword(current_addr)
         if func_rva == BADADDR:
-            print(f"Invalid RVA at address {hex(current_addr)}. Skipping.")
+            logging.info(f"Invalid RVA at address {hex(current_addr)}. Skipping.")
             current_addr += 12  # Move to the next entry
             continue
 
@@ -34,22 +34,22 @@ def parse_pdata_and_comment_references():
         
         if func_name:
             vtable_addr = current_addr
-            comment_text = f"{func_name} - Part of vtable (library function), Vtable Address: {hex(vtable_addr)}"
+            comment_text = f"{func_name} - Part of vtable (probably library function), Vtable Address: {hex(vtable_addr)}"
             
             # Use FeatureProof's function to find all references to this function
             xrefs = fp.get_all_xref_addresses_to_this_address(func_ea)
             for ref in xrefs:
                 # Add the comment at each reference address
-                print("ref:{}".format(fp.format_ea_t(ref)))
+                logging.info("ref:{}".format(fp.format_ea_t(ref)))
                 fp.set_comment_at_address(fp.format_ea_t(ref), comment_text, is_repeatable=True)
-                # print(f"Added comment at ref: '{comment_text}'")
+                # logging.info(f"Added comment at ref: '{comment_text}'")
                 
             # Add an anterior (repeatable) comment to the function itself
-            print("function:{}".format(func_ea))
+            logging.info("function:{}".format(func_ea))
             fp.set_comment_at_address(func_ea, comment_text, is_repeatable=True)
-            # print(f"Added function comment for {func_name} at {hex(func_ea)}")
+            # logging.info(f"Added function comment for {func_name} at {hex(func_ea)}")
         else:
-            print(f"No function name found for address {hex(func_ea)}")
+            logging.info(f"No function name found for address {hex(func_ea)}")
 
         # Move to the next entry (12 bytes for RUNTIME_FUNCTION)
         current_addr += 12

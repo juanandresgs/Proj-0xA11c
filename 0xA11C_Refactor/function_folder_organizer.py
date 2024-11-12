@@ -39,7 +39,7 @@ def get_all_library_functions_from_pdata() -> list[int]:
         if not ("main" in func_name.lower() or "start" in func_name.lower()):
             functions.append(func_ea)
         else:
-            logging.info(f"Skipped function name: {func_name} at: {func_ea}")
+            logging.debug(f"Skipped function name: {func_name} at: {func_ea}")
         current_addr += 12
     
     return functions
