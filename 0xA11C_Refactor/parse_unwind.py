@@ -1,4 +1,5 @@
 import idaapi
+import logging
 idaapi.require("FeatureProof.FeatureProof")
 from FeatureProof.FeatureProof import Middleware
 
@@ -7,21 +8,21 @@ fp.set_logging_level(level=logging.INFO)
 logger = fp.logger
 
 # Determine the bitness of the binary
-is_64bit = idaapi.get_inf_structure().is_64bit()
+is_64bit = fp.is_64bit()
 
 def get_image_base():
     """Get the image base address of the loaded binary."""
-    image_base = idaapi.get_imagebase()
-    logger.debug(f"Image base: 0x{image_base:X}")
+    image_base = fp.get_imagebase()
+    logger.debug(f"Image base: {fp.format_address(image_base)}")
     return image_base
 
 def get_pdata_segment():
     """Get the .pdata segment."""
-    seg = idaapi.get_segm_by_name(".pdata")
+    seg = fp.get_segment_by_name(".pdata")
     if not seg:
-        print("Error: .pdata section not found.")
+        logger.error("Error: .pdata section not found.")
         return None, None
-    logger.debug(f".pdata segment found: start=0x{seg.start_ea:X}, end=0x{seg.end_ea:X}")
+    logger.debug(f".pdata segment found: start={fp.format_address(seg.start_ea)}, end={fp.format_address(seg.end_ea)}")
     return seg.start_ea, seg.end_ea
 
 def parse_scope_table(scope_table_addr, num_entries):
@@ -31,14 +32,14 @@ def parse_scope_table(scope_table_addr, num_entries):
 
     for i in range(num_entries):
         try:
-            begin_addr = idc.get_wide_dword(scope_table_addr + i * entry_size)
-            end_addr = idc.get_wide_dword(scope_table_addr + i * entry_size + 4)
-            handler_addr = idc.get_wide_dword(scope_table_addr + (i * entry_size + 8))
+            begin_addr = fp.get_wide_dword(scope_table_addr + i * entry_size)
+            end_addr = fp.get_wide_dword(scope_table_addr + i * entry_size + 4)
+            handler_addr = fp.get_wide_dword(scope_table_addr + (i * entry_size + 8))
             if begin_addr == 0xFFFFFFFF or end_addr == 0xFFFFFFFF or handler_addr == 0xFFFFFFFF:
                 logger.debug(f"Invalid address in scope table at entry {i}")
                 break
             scopes.append((begin_addr, end_addr, handler_addr))
-            logger.debug(f"Scope Table Entry {i}: Begin=0x{begin_addr:X}, End=0x{end_addr:X}, Handler=0x{handler_addr:X}")
+            logger.debug(f"Scope Table Entry {i}: Begin={fp.format_address(begin_addr)}, End={fp.format_address(end_addr)}, Handler={fp.format_address(handler_addr)}")
         except Exception as e:
             logger.debug(f"Exception parsing scope table entry {i}: {e}")
             break
@@ -48,22 +49,22 @@ def parse_scope_table(scope_table_addr, num_entries):
 def parse_unwind_code(addr, count):
     unwind_codes = []
     for i in range(count):
-        code_offset = ida_bytes.get_byte(addr + i * 2)
-        unwind_op_info = ida_bytes.get_byte(addr + i * 2 + 1)
+        code_offset = fp.get_byte(addr + i * 2)
+        unwind_op_info = fp.get_byte(addr + i * 2 + 1)
         operation = unwind_op_info & 0x0F
         info = unwind_op_info >> 4
         unwind_codes.append((code_offset, operation, info))
     return unwind_codes
 
 def parse_unwind_info(addr):
-    version_flags = ida_bytes.get_byte(addr)
+    version_flags = fp.get_byte(addr)
     version = version_flags & 0b111
     flags = version_flags >> 3
 
-    size_of_prolog = ida_bytes.get_byte(addr + 1)
-    count_of_unwind_codes = ida_bytes.get_byte(addr + 2)
+    size_of_prolog = fp.get_byte(addr + 1)
+    count_of_unwind_codes = fp.get_byte(addr + 2)
 
-    frame_reg_offset = ida_bytes.get_byte(addr + 3)
+    frame_reg_offset = fp.get_byte(addr + 3)
     frame_register = frame_reg_offset & 0b1111
     frame_register_offset = frame_reg_offset >> 4
 
@@ -91,10 +92,10 @@ def parse_unwind_info(addr):
             non_volatile_registers.append(f"{reg} (at offset {code[0]})")
         elif code[1] == 1:  # UWOP_ALLOC_LARGE
             if code[2] == 0:
-                stack_allocation_size += ida_bytes.get_wide_word(addr + 4 + i * 2 + 2)
+                stack_allocation_size += fp.get_wide_word(addr + 4 + i * 2 + 2)
                 i += 2  # Skip the next 2 bytes as they are part of the current operation
             else:
-                stack_allocation_size += ida_bytes.get_wide_dword(addr + 4 + i * 2 + 2)
+                stack_allocation_size += fp.get_wide_dword(addr + 4 + i * 2 + 2)
                 i += 2  # Skip the next 4 bytes as they are part of the current operation
         elif code[1] == 2:  # UWOP_ALLOC_SMALL
             stack_allocation_size += (code[2] + 1) * 8
@@ -119,9 +120,9 @@ def suggest_calling_convention(non_volatile_registers, stack_allocation_size):
 def process_function(func_start, image_base, pdata_start, pdata_end):
     """Process a single function and add comments based on UNWIND_INFO."""
     for addr in range(pdata_start, pdata_end, 12):
-        start_rva = idc.get_wide_dword(addr)
-        end_rva = idc.get_wide_dword(addr + 4)
-        unwind_info_rva = idc.get_wide_dword(addr + 8)
+        start_rva = fp.get_wide_dword(addr)
+        end_rva = fp.get_wide_dword(addr + 4)
+        unwind_info_rva = fp.get_wide_dword(addr + 8)
 
         if func_start == image_base + start_rva:
             unwind_info_addr = image_base + unwind_info_rva
@@ -129,38 +130,21 @@ def process_function(func_start, image_base, pdata_start, pdata_end):
             if unwind_info is None:
                 continue
 
-            non_volatile_regs = ', '.join(unwind_info['NonVolatileRegisters'])
-            # calling_convention = suggest_calling_convention(unwind_info['NonVolatileRegisters'], unwind_info['StackAllocationSize'])
+            # Build comment fields
+            fields = [
+                f"Version: {unwind_info['Version']}" if unwind_info['Version'] > 0 else None,
+                f"Flags: {unwind_info['Flags']}" if unwind_info['Flags'] not in [0, None] else None,
+                f"Size Of Prolog: {unwind_info['SizeOfProlog']}" if unwind_info['SizeOfProlog'] > 0 else None,
+                f"Count Of Unwind Codes: {unwind_info['CountOfUnwindCodes']}" if unwind_info['CountOfUnwindCodes'] > 0 else None,
+                f"Frame Register: {unwind_info['FrameRegister']}" if unwind_info['FrameRegister'] > 0 else None,
+                f"Frame Register Offset: {unwind_info['FrameRegisterOffset']}" if unwind_info['FrameRegisterOffset'] > 0 else None,
+                f"Stack Allocation Size: {unwind_info['StackAllocationSize']}" if unwind_info['StackAllocationSize'] > 0 else None,
+                f"Non-volatile Registers: {', '.join(unwind_info['NonVolatileRegisters'])}" if unwind_info['NonVolatileRegisters'] else None
+            ]
 
-            fields = []
-
-            if unwind_info['Version'] > 0:
-                fields.append(f"Version: {unwind_info['Version']}")
-
-            if unwind_info['Flags'] not in [0, None]:
-                fields.append(f"Flags: {unwind_info['Flags']}")
-
-            if unwind_info['SizeOfProlog'] > 0 :
-                fields.append(f"Size Of Prolog: {unwind_info['SizeOfProlog']}")
-
-            if unwind_info['CountOfUnwindCodes'] > 0 :
-                fields.append(f"Count Of Unwind Codes: {unwind_info['CountOfUnwindCodes']}")
-
-            if unwind_info['FrameRegister'] > 0 :
-                fields.append(f"Frame Register: {unwind_info['FrameRegister']}")
-
-            if unwind_info['FrameRegisterOffset'] > 0 :
-                fields.append(f"Frame Register Offset: {unwind_info['FrameRegisterOffset']}")
-
-            if unwind_info['StackAllocationSize'] > 0 :
-                fields.append(f"Stack Allocation Size: {unwind_info['StackAllocationSize']}")
-
-            if len(non_volatile_regs) > 0 :
-                fields.append(f"Non-volatile Registers: {non_volatile_regs}")
-
-
-            comment = "Unwind Info-\n" + "\n".join(fields)
-            idc.set_func_cmt(func_start, comment, 1)
+            # Filter out None values and join with newlines
+            comment = "Unwind Info-\n" + "\n".join(field for field in fields if field is not None)
+            fp.set_comment_at_address(func_start, comment)
             break
 
 def add_comments():
@@ -170,20 +154,23 @@ def add_comments():
     if pdata_start is None:
         return
 
-    for func_start in idautils.Functions():
+    for func_start in fp.walk_functions():
         process_function(func_start, image_base, pdata_start, pdata_end)
 
-print("Start parsing stack unwind info...")
+def main():
+    """Main entry point for the script."""
+    logger.info("Start parsing stack unwind info...")
+    
+    if fp.is_64bit():
+        logger.info("Bitness: 64-bit")
+    else:
+        logger.info("Bitness: 32-bit")
 
-#TODO: Remove unnnecessary printing
-if fp.is_64bit():
-    print("Bitness: 64-bit")
-else:
-    print("Bitness: 32-bit.")
+    inf = idaapi.get_inf_structure()
+    logger.info(f"Architecture is: {inf.procname}") #TODO: Abstract this away to FeatureProof
 
-inf = idaapi.get_inf_structure()
-proc_name = inf.procname
-logger.info(f"Architecture is: {proc_name}")
+    add_comments()
+    logger.info("Done.")
 
-add_comments()
-logger.info("Done.")
+if __name__ == "__main__":
+    main()
