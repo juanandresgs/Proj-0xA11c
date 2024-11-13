@@ -4,7 +4,7 @@ idaapi.require("FeatureProof.FeatureProof")
 from FeatureProof.FeatureProof import Middleware
 
 fp = Middleware()
-fp.set_logging_level(level=logging.INFO)
+fp.set_logging_level("INFO")
 logger = fp.logger
 
 ############ Path Handler ############
@@ -23,7 +23,7 @@ def get_struct_values(ea):
     :return: A tuple with the string content, line number, and column number.
     """
     try:
-        is64bit = is_64bit()
+        is64bit = fp.is_64bit()
 
         # Determine offsets based on the bitness of the structure
         string_ptr_offset = 0x0
@@ -32,31 +32,31 @@ def get_struct_values(ea):
         column_number_offset = 0x14 if is64bit else 0xC
 
         # Read the pointer value for the string content
-        string_ptr = ida_bytes.get_qword(ea + string_ptr_offset) if is64bit else ida_bytes.get_dword(ea + string_ptr_offset)
+        string_ptr = fp.get_qword_at_address(ea + string_ptr_offset) if is64bit else fp.get_dword_at_address(ea + string_ptr_offset)
         if string_ptr == idaapi.BADADDR:
-            print(f"Failed to read the pointer at address {hex(ea + string_ptr_offset)}.")
+            logger.error(f"Failed to read the pointer at address {hex(ea + string_ptr_offset)}.")
             return None, None, None
 
         # Read the length of the string
-        string_len = ida_bytes.get_qword(ea + string_len_offset) if is64bit else ida_bytes.get_dword(ea + string_len_offset)
+        string_len = fp.get_qword_at_address(ea + string_len_offset) if is64bit else fp.get_dword_at_address(ea + string_len_offset)
 
         # Retrieve the actual string content using the pointer and length
         string_content = idc.get_strlit_contents(string_ptr, string_len, idc.STRTYPE_C)
         if string_content:
             string_content = string_content.decode('utf-8')  # Decode bytes to string
         else:
-            print(f"Failed to retrieve string content from pointer {hex(string_ptr)}.")
+            logger.error(f"Failed to retrieve string content from pointer {hex(string_ptr)}.")
             string_content = None
 
         # Read the line number
-        line_number = ida_bytes.get_dword(ea + line_number_offset)
+        line_number = fp.get_dword_at_address(ea + line_number_offset)
 
         # Read the column number
-        column_number = ida_bytes.get_dword(ea + column_number_offset)
+        column_number = fp.get_dword_at_address(ea + column_number_offset)
 
         return string_content, line_number, column_number
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"An error occurred: {e}")
         return None, None, None
 
 def combine_path_to_symbol_name(file_path, line_number, column_number):
@@ -79,7 +79,7 @@ def combine_path_to_symbol_name(file_path, line_number, column_number):
 
         return sanitized_symbol_name
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"An error occurred: {e}")
         return None
 
 def create_formatted_comment(string_content, line_number, column_number):
@@ -96,7 +96,7 @@ def create_formatted_comment(string_content, line_number, column_number):
         comment = f"File: {string_content}, Line: {line_number}, Column: {column_number}"
         return comment
     except Exception as e:
-        print(f"An error occurred while creating the comment: {e}")
+        logger.error(f"An error occurred while creating the comment: {e}")
         return None
 
 #######################################
@@ -104,30 +104,30 @@ def create_formatted_comment(string_content, line_number, column_number):
 #######################################
 debug_struct = ""
 slice_struct = ""
-if is_64bit:
-    if not does_struct_exist("rust__DebugInfo64"):
-        raise Exception("Error: Can't proceed without adding rust__DebugInfo64 structure")
+if fp.is_64bit():
+    if not fp.does_struct_exist("Rust_DebugInfo64"):
+        raise Exception("Error: Can't proceed without adding Rust_DebugInfo64 structure")
     else:
-        debug_struct = "rust__DebugInfo64"
-    if not does_struct_exist("rust__Slice64"):
-        raise Exception("Error: Can't proceed without adding rust__Slice64 structure")
+        debug_struct = "Rust_DebugInfo64"
+    if not fp.does_struct_exist("Rust_Slice64"):
+        raise Exception("Error: Can't proceed without adding Rust_Slice64 structure")
     else:
-        slice_struct = "rust__Slice64"
+        slice_struct = "Rust_Slice64"
 else:
-    if not does_struct_exist("rust__DebugInfo"):
-        raise Exception("Error: Can't proceed without adding rust__DebugInfo structure")
+    if not fp.does_struct_exist("Rust_DebugInfo"):
+        raise Exception("Error: Can't proceed without adding Rust_DebugInfo structure")
     else:
-        debug_struct = "rust__DebugInfo"
-    if not does_struct_exist("rust__Slice"):
-        raise Exception("Error: Can't proceed without adding rust__Slice structure")
+        debug_struct = "Rust_DebugInfo"
+    if not fp.does_struct_exist("Rust_Slice"):
+        raise Exception("Error: Can't proceed without adding Rust_Slice structure")
     else:
-        slice_struct = "rust__Slice"
+        slice_struct = "Rust_Slice"
 
 #######################################
 #GOAL:Find Path Strings
 #######################################
 paths = set()
-for s in get_strings_ending_with(".rs"):
+for s in fp.get_strings_ending_with(".rs"):
     if '\\' in s[1] or '/' in s[1]:
         paths.add(s)
 
@@ -140,31 +140,30 @@ for s in get_strings_ending_with(".rs"):
 #TODO: ADD LOGIC TO HANDLE DUPLICATE SYMBOL NAMES
 for s in paths:
     address = s[0]
-    sanitized_name = "Path_" + sanitize_ida_symbol_name(s[1])
-    rename_symbol_at_address(format_ea_t(address), sanitized_name)
+    sanitized_name = "Path_" + fp.sanitize_ida_symbol_name(s[1])
+    fp.rename_symbol_at_address(fp.format_ea_t(address), sanitized_name)
 
 #######################################
 #GOAL:Get all XREFs
 #######################################
 
 for addr, symbol in paths:
-    addr = format_ea_t(addr)
-    path_segment = get_segment_name_at_address(addr)
-    name = "rdi_" + sanitize_ida_symbol_name(symbol)
-    xrefs = get_all_xref_addresses_to_this_address(addr)
+    addr = fp.format_ea_t(addr)
+    path_segment = fp.get_segment_name_at_address(addr)
+    name = "rdi_" + fp.sanitize_ida_symbol_name(symbol)
+    xrefs = fp.get_all_xref_addresses_to_this_address(addr)
     # print(name) # DEBUG
     for x in xrefs:
-        if get_segment_name_at_address(format_ea_t(x)) == path_segment:
-            # print(f"Suspected Path struct at: ", x) # DEBUG
-            formatted_x = format_ea_t(x)
-            set_symbol_type_to_custom_struct(formatted_x, debug_struct)
+        if fp.get_segment_name_at_address(fp.format_ea_t(x)) == path_segment:
+            formatted_x = fp.format_ea_t(x)
+            fp.set_symbol_type_to_custom_struct(formatted_x, debug_struct)
             string_content, line_number, column_number = get_struct_values(formatted_x)
             combined_name = combine_path_to_symbol_name(string_content, line_number, column_number)
-            rename_symbol_at_address(formatted_x, combined_name)
+            fp.rename_symbol_at_address(formatted_x, combined_name)
             better_comment = create_formatted_comment(string_content, line_number, column_number)
-            set_comment_at_address(formatted_x, better_comment, True)
-            for xref in get_all_xref_addresses_to_this_address(formatted_x):
-                set_comment_at_address(format_ea_t(xref), better_comment, True)
+            fp.set_comment_at_address(formatted_x, better_comment, True)
+            for xref in fp.get_all_xref_addresses_to_this_address(formatted_x):
+                fp.set_comment_at_address(fp.format_ea_t(xref), better_comment, True)
 
 
 

@@ -4,7 +4,7 @@ idaapi.require("FeatureProof.FeatureProof")
 from FeatureProof.FeatureProof import Middleware
 
 fp = Middleware()
-fp.set_logging_level(level=logging.INFO)
+fp.set_logging_level("INFO")
 logger = fp.logger
 
 def get_version_from_commit(commit: str):

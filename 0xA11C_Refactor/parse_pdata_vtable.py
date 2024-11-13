@@ -1,11 +1,10 @@
 import idaapi
-import logging
 idaapi.require("FeatureProof.FeatureProof")
 from FeatureProof.FeatureProof import Middleware
 from FeatureProof.TypeInfo import BADADDR
 
 fp = Middleware()
-fp.set_logging_level(level=logging.INFO)
+fp.set_logging_level("INFO")
 logger = fp.logger
 
 def parse_pdata_and_comment_references():

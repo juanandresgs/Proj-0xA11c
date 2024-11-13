@@ -1,10 +1,9 @@
 import idaapi
-import logging
 idaapi.require("FeatureProof.FeatureProof")
 from FeatureProof.FeatureProof import Middleware
 
 fp = Middleware()
-fp.set_logging_level(level=logging.INFO)
+fp.set_logging_level("INFO")
 logger = fp.logger
 
 # Check bitness and set the correct structs based on that

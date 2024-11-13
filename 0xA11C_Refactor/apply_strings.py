@@ -1,11 +1,10 @@
 import idaapi
-import logging
 idaapi.require("FeatureProof")
 from FeatureProof.FeatureProof import Middleware
 from FeatureProof.TypeInfo import *
 
 fp = Middleware()
-fp.set_logging_level(level=logging.DEBUG) # Set this back to INFO for publication
+fp.set_logging_level("DEBUG") # Set this back to INFO for publication
 logger = fp.logger
 
 # Set bitness specific constants

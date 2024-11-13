@@ -1,12 +1,11 @@
 import idaapi
-import logging
 idaapi.require("FeatureProof")
 from FeatureProof.FeatureProof import Middleware
 from FeatureProof.TypeInfo import *
 
 # Initialize FeatureProof middleware and set up logging
 fp = Middleware()
-fp.set_logging_level(level=logging.INFO)
+fp.set_logging_level("INFO")
 logger = fp.logger
 
 def get_all_library_functions_from_pdata() -> list[int]:
