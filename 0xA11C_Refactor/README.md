@@ -13,6 +13,7 @@ After cloning the repo, make sure you run `git submodule update --init --recursi
 - [FeatureProof](https://github.com/juanandresgs/FeatureProof.git)
 
 Before running the 0xA11C scripts, please import the 'structure_pack.h' file in IDA Pro by click on File -> Load File -> Parse C header file (Ctrl+F9). This file contains the necessary structures for the scripts to work.
+(NOTE: To avoid parsing errors, make sure the parser is set to <default> in Options->Compiler->Parser)
 
 Where symbols are available, we recommend switching name demangling settings: Options -> Demangled Names -> Show demangled names as: Names.
 
@@ -26,30 +27,19 @@ Where symbols are available, we recommend switching name demangling settings: Op
 | cargo_dependency.py | Extract dependencies | ✅ |
 | compiler_version.py | Determine Rust compiler version | ✅ |
 | **Strings and Slices** | | |
-| apply_strings.py | Apply Rust string and slice structures | ❌ |
-| panic_attack.py | Handle panic macro paths | X |
+| panic_attack.py | Handle panic macro paths | 🚧 |
+| apply_strings.py | Apply Rust string and slice structures | {Needs Full Refactor} 🚧 |
 | reverse_xmmword_strings.py| Reverse xmmword strings | ❌ |
-| slice_caster.py | Script to cast slices in IDA Pro | X |
+| slice_caster.py | Script to cast slices in IDA Pro | ❌ |
 | string_caster.py | Placeholder for the final string caster script | ❌ |
+| **Function Information** | | |
+| parse_unwind.py | Script to parse unwind information | ✅ |
+| parse_pdata_vtable.py | Parse .pdata and comment references | WIP 🚧 |
+| function_folder_organizer.py | Organize functions by library/thunk | WIP 🚧 |
 | **Variables** | | |
-| parse_unwind.py | Script to parse unwind information | ❌ |
 | find_BYREF (JAGS) | Script to find BYREF variables | ❌ |
-| Functions | | |
-| parse_pdata_vtable.py | Parse .pdata and comment references | ❌ |
-
-## Work In Progress
-
-| Component  | Description | Status |
-|------------|-------------|--------|
 
 ---
-
-## Weirdnesses
-
-### Re: compiler_version.py
-
-- In the case of 4272b75fe652298ab880b2975d94b5a5a139be6c24c1e92136188e1531ce9890, loading the binary in a standard fashion cut off the section with the clang llvm rustc version string. Need to investigate what happened. When manually loaded, it's there. What else is missing?
-- [ ] (Retest post refactoring)
 
 ---
 
@@ -67,14 +57,11 @@ Where symbols are available, we recommend switching name demangling settings: Op
 ## Apply Structures and Gain info
 
 [x]- parse_unwind.py (Dependent on UNWIND_INFO_HDR structure)
-[ ]- define_string_structs.py (To be replaced by structure_creator, when IDAPython stops being obnoxious)
-[ ]- apply_strings.py (NF) (Dependent on rust**Slice/64 and rust**String/64 structures)
+[x]- panic_attack.py
+[ ]- define_string_structs.py
+[ ]- apply_strings.py (NF)
 
 ## Decompiler Improvements
 
 [ ]- reverse_xmmword_strings.py (NEEDS REFACTORING)
 [ ]- find_BYREF (JAGS) (WIP)
-
-## Recover Metadata
-
-[x]- panic_attack.py
